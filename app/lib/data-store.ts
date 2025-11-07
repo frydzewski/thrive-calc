@@ -1,24 +1,34 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+  QueryCommand,
+  DeleteCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
-const s3Client = new S3Client({
+const client = new DynamoDBClient({
   region: process.env.AWS_REGION || process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
 });
 
-const BUCKET_NAME = process.env.DATA_BUCKET_NAME || process.env.NEXT_PUBLIC_DATA_BUCKET_NAME || '';
+const docClient = DynamoDBDocumentClient.from(client);
+
+const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || process.env.NEXT_PUBLIC_DYNAMODB_TABLE_NAME || 'finplan-user-data';
 
 export interface UserDataRecord {
   userId: string;
+  recordKey: string;  // Format: {dataType}#{recordId}
   dataType: string;
   recordId: string;
   data: any;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
- * Save user data to S3 in Parquet format
- * For now, we'll use JSON format until full Parquet/Iceberg integration is complete
+ * Save user data to DynamoDB
  */
 export async function saveUserData(
   userId: string,
@@ -27,10 +37,12 @@ export async function saveUserData(
   recordId?: string
 ): Promise<string> {
   const id = recordId || uuidv4();
-  const now = new Date();
+  const now = new Date().toISOString();
+  const recordKey = `${dataType}#${id}`;
 
   const record: UserDataRecord = {
     userId,
+    recordKey,
     dataType,
     recordId: id,
     data,
@@ -38,20 +50,11 @@ export async function saveUserData(
     updatedAt: now,
   };
 
-  const key = `users/${userId}/${dataType}/${id}.json`;
-
   try {
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-        Body: JSON.stringify(record),
-        ContentType: 'application/json',
-        Metadata: {
-          userId,
-          dataType,
-          recordId: id,
-        },
+    await docClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: record,
       })
     );
 
@@ -63,33 +66,28 @@ export async function saveUserData(
 }
 
 /**
- * Get user data from S3
+ * Get user data from DynamoDB
  */
 export async function getUserData(
   userId: string,
   dataType: string,
   recordId: string
 ): Promise<UserDataRecord | null> {
-  const key = `users/${userId}/${dataType}/${recordId}.json`;
+  const recordKey = `${dataType}#${recordId}`;
 
   try {
-    const response = await s3Client.send(
-      new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
+    const response = await docClient.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          userId,
+          recordKey,
+        },
       })
     );
 
-    if (!response.Body) {
-      return null;
-    }
-
-    const bodyString = await response.Body.transformToString();
-    return JSON.parse(bodyString);
-  } catch (error: any) {
-    if (error.name === 'NoSuchKey') {
-      return null;
-    }
+    return response.Item as UserDataRecord || null;
+  } catch (error) {
     console.error('Error getting user data:', error);
     throw new Error('Failed to get user data');
   }
@@ -102,48 +100,47 @@ export async function listUserData(
   userId: string,
   dataType: string
 ): Promise<UserDataRecord[]> {
-  const prefix = `users/${userId}/${dataType}/`;
-
   try {
-    const response = await s3Client.send(
-      new ListObjectsV2Command({
-        Bucket: BUCKET_NAME,
-        Prefix: prefix,
+    const response = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: 'DataTypeIndex',
+        KeyConditionExpression: 'userId = :userId AND dataType = :dataType',
+        ExpressionAttributeValues: {
+          ':userId': userId,
+          ':dataType': dataType,
+        },
       })
     );
 
-    if (!response.Contents || response.Contents.length === 0) {
-      return [];
-    }
-
-    // Fetch all records
-    const records = await Promise.all(
-      response.Contents.map(async (object) => {
-        if (!object.Key) return null;
-
-        try {
-          const data = await s3Client.send(
-            new GetObjectCommand({
-              Bucket: BUCKET_NAME,
-              Key: object.Key,
-            })
-          );
-
-          if (!data.Body) return null;
-
-          const bodyString = await data.Body.transformToString();
-          return JSON.parse(bodyString) as UserDataRecord;
-        } catch (error) {
-          console.error(`Error fetching ${object.Key}:`, error);
-          return null;
-        }
-      })
-    );
-
-    return records.filter((r): r is UserDataRecord => r !== null);
+    return (response.Items as UserDataRecord[]) || [];
   } catch (error) {
     console.error('Error listing user data:', error);
     throw new Error('Failed to list user data');
+  }
+}
+
+/**
+ * List all records for a user (all data types)
+ */
+export async function listAllUserData(
+  userId: string
+): Promise<UserDataRecord[]> {
+  try {
+    const response = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'userId = :userId',
+        ExpressionAttributeValues: {
+          ':userId': userId,
+        },
+      })
+    );
+
+    return (response.Items as UserDataRecord[]) || [];
+  } catch (error) {
+    console.error('Error listing all user data:', error);
+    throw new Error('Failed to list all user data');
   }
 }
 
@@ -155,14 +152,16 @@ export async function deleteUserData(
   dataType: string,
   recordId: string
 ): Promise<void> {
-  const key = `users/${userId}/${dataType}/${recordId}.json`;
+  const recordKey = `${dataType}#${recordId}`;
 
   try {
-    const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
+    await docClient.send(
+      new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          userId,
+          recordKey,
+        },
       })
     );
   } catch (error) {
@@ -180,31 +179,29 @@ export async function updateUserData(
   recordId: string,
   data: any
 ): Promise<void> {
-  const existing = await getUserData(userId, dataType, recordId);
+  const recordKey = `${dataType}#${recordId}`;
+  const now = new Date().toISOString();
 
-  if (!existing) {
-    throw new Error('Record not found');
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          userId,
+          recordKey,
+        },
+        UpdateExpression: 'SET #data = :data, updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#data': 'data',
+        },
+        ExpressionAttributeValues: {
+          ':data': data,
+          ':updatedAt': now,
+        },
+      })
+    );
+  } catch (error) {
+    console.error('Error updating user data:', error);
+    throw new Error('Failed to update user data');
   }
-
-  const updated: UserDataRecord = {
-    ...existing,
-    data,
-    updatedAt: new Date(),
-  };
-
-  const key = `users/${userId}/${dataType}/${recordId}.json`;
-
-  await s3Client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-      Body: JSON.stringify(updated),
-      ContentType: 'application/json',
-      Metadata: {
-        userId,
-        dataType,
-        recordId,
-      },
-    })
-  );
 }

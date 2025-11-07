@@ -5,7 +5,7 @@ A comprehensive financial planning and retirement web application built with Nex
 ## Features
 
 - **Google Authentication** - Secure sign-in with Google OAuth
-- **User Data Storage** - S3-based storage with Parquet/Iceberg support
+- **User Data Storage** - DynamoDB for fast, scalable data storage
 - **Dashboard** - Overview of your financial health with key metrics and insights
 - **Retirement Calculator** - Interactive calculator to project your retirement savings and income
 - **Savings Goals** - Create and track multiple savings goals with progress monitoring
@@ -18,8 +18,8 @@ A comprehensive financial planning and retirement web application built with Nex
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS 4
 - **Authentication**: NextAuth.js with Google OAuth
-- **Data Storage**: AWS S3 with Parquet/Iceberg
-- **Infrastructure**: AWS CDK (ECS Fargate, S3, Glue)
+- **Data Storage**: Amazon DynamoDB
+- **Infrastructure**: AWS CDK (ECS Fargate, DynamoDB)
 - **Font**: Geist Sans & Geist Mono
 
 ## Getting Started
@@ -112,22 +112,22 @@ You can also deploy using:
 
 This application includes:
 - **Google OAuth Authentication** - Secure user sign-in
-- **AWS S3 Data Storage** - User data stored in S3 with Parquet/Iceberg format
-- **AWS Glue Catalog** - Iceberg table catalog for analytics
+- **Amazon DynamoDB** - Fast, scalable NoSQL database for user data
+- **Automatic Scaling** - Pay-per-request billing with unlimited throughput
 
 ### Documentation
 
 - **[QUICK_START_AUTH.md](./QUICK_START_AUTH.md)** - Get authentication working in 5 minutes
 - **[AUTHENTICATION_SETUP.md](./AUTHENTICATION_SETUP.md)** - Complete authentication guide
-- **[AUTHENTICATION_SUMMARY.md](./AUTHENTICATION_SUMMARY.md)** - Implementation summary
+- **[DYNAMODB_GUIDE.md](./DYNAMODB_GUIDE.md)** - DynamoDB data storage guide
 
 ### Key Features
 
 - User-specific data isolation
-- S3 versioning for data protection
-- Encrypted at rest
-- Ready for Parquet/Iceberg analytics
-- Low cost (~$3.40/month additional)
+- Single-digit millisecond performance
+- Encrypted at rest with AWS-managed keys
+- Point-in-time recovery enabled
+- Very low cost (~$2-20/month for 1,000-10,000 users)
 
 ## License
 
