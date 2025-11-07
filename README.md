@@ -1,0 +1,134 @@
+# FinPlan - Financial Planning & Retirement App
+
+A comprehensive financial planning and retirement web application built with Next.js, TypeScript, and Tailwind CSS. Plan your financial future with tools for retirement planning, savings goals tracking, portfolio management, and financial reporting.
+
+## Features
+
+- **Google Authentication** - Secure sign-in with Google OAuth
+- **User Data Storage** - S3-based storage with Parquet/Iceberg support
+- **Dashboard** - Overview of your financial health with key metrics and insights
+- **Retirement Calculator** - Interactive calculator to project your retirement savings and income
+- **Savings Goals** - Create and track multiple savings goals with progress monitoring
+- **Portfolio Management** - Track your investment holdings, performance, and asset allocation
+- **Financial Reports** - Comprehensive reports on savings rate, financial health, and personalized recommendations
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS 4
+- **Authentication**: NextAuth.js with Google OAuth
+- **Data Storage**: AWS S3 with Parquet/Iceberg
+- **Infrastructure**: AWS CDK (ECS Fargate, S3, Glue)
+- **Font**: Geist Sans & Geist Mono
+
+## Getting Started
+
+### Quick Start (Local Development)
+
+1. **Install dependencies:**
+
+```bash
+npm install
+```
+
+2. **Set up Google Authentication** (5 minutes):
+
+See [QUICK_START_AUTH.md](./QUICK_START_AUTH.md) for step-by-step instructions.
+
+Quick version:
+- Get Google OAuth credentials from https://console.cloud.google.com
+- Copy `.env.example` to `.env.local`
+- Add your Google Client ID and Secret
+
+3. **Run the development server:**
+
+```bash
+npm run dev
+```
+
+4. **Open the app:**
+
+http://localhost:3000
+
+You should see "Sign In with Google" in the navigation!
+
+## Project Structure
+
+```
+app/
+├── components/
+│   └── Navigation.tsx      # Main navigation component
+├── dashboard/              # Dashboard page
+├── retirement-calculator/  # Retirement calculator with interactive sliders
+├── savings-goals/          # Savings goals tracker
+├── portfolio/              # Investment portfolio tracker
+├── reports/                # Financial reports and recommendations
+├── layout.tsx              # Root layout with navigation
+└── page.tsx                # Landing page
+```
+
+## Deployment
+
+### Deploy to AWS with CDK
+
+This application includes AWS CDK infrastructure as code for automated deployment to AWS ECS Fargate.
+
+**Quick Start:**
+
+```bash
+# Automated deployment (recommended)
+./scripts/deploy.sh
+
+# Or manual deployment
+npm run cdk:bootstrap  # First time only
+npm run cdk:deploy
+```
+
+**What gets deployed:**
+- VPC with public and private subnets
+- ECS Fargate cluster with auto-scaling
+- Application Load Balancer
+- CloudWatch logging
+- Container image from your Next.js app
+
+**Deployment time:** ~10-15 minutes
+
+**Estimated cost:** ~$65-80/month
+
+For detailed deployment instructions, see:
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Complete deployment guide
+- [CDK_QUICK_REFERENCE.md](./CDK_QUICK_REFERENCE.md) - Quick command reference
+
+### Alternative Deployment Options
+
+You can also deploy using:
+- AWS Amplify
+- AWS Elastic Beanstalk
+- Vercel (easiest for Next.js)
+- Custom EC2 setup
+
+## Authentication & Data Storage
+
+This application includes:
+- **Google OAuth Authentication** - Secure user sign-in
+- **AWS S3 Data Storage** - User data stored in S3 with Parquet/Iceberg format
+- **AWS Glue Catalog** - Iceberg table catalog for analytics
+
+### Documentation
+
+- **[QUICK_START_AUTH.md](./QUICK_START_AUTH.md)** - Get authentication working in 5 minutes
+- **[AUTHENTICATION_SETUP.md](./AUTHENTICATION_SETUP.md)** - Complete authentication guide
+- **[AUTHENTICATION_SUMMARY.md](./AUTHENTICATION_SUMMARY.md)** - Implementation summary
+
+### Key Features
+
+- User-specific data isolation
+- S3 versioning for data protection
+- Encrypted at rest
+- Ready for Parquet/Iceberg analytics
+- Low cost (~$3.40/month additional)
+
+## License
+
+MIT
