@@ -83,7 +83,7 @@ export class FinPlanStack extends cdk.Stack {
         serviceName: 'finplan-service',
         memoryLimitMiB: 512,
         cpu: 256,
-        desiredCount: 2,
+        desiredCount: 1,
         taskImageOptions: {
           image: ecs.ContainerImage.fromAsset(path.resolve(__dirname, '../..')),
           containerName: 'finplan-app',
