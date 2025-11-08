@@ -4,6 +4,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -74,6 +75,77 @@ export class FinPlanStack extends cdk.Stack {
       },
     });
 
+    // Create Cognito User Pool
+    const userPool = new cognito.UserPool(this, 'FinPlanUserPool', {
+      userPoolName: 'finplan-users',
+      selfSignUpEnabled: true,
+      signInAliases: {
+        email: true,
+        username: false,
+      },
+      autoVerify: {
+        email: true,
+      },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: false,
+        },
+        givenName: {
+          required: false,
+          mutable: true,
+        },
+        familyName: {
+          required: false,
+          mutable: true,
+        },
+      },
+      passwordPolicy: {
+        minLength: 8,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: false,
+      },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // Create Cognito User Pool Client
+    const userPoolClient = new cognito.UserPoolClient(this, 'FinPlanUserPoolClient', {
+      userPool,
+      userPoolClientName: 'finplan-web-client',
+      authFlows: {
+        userPassword: true,
+        userSrp: true,
+      },
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+        },
+        scopes: [
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: [
+          'http://localhost:3000/api/auth/callback/cognito',
+          `http://${cdk.Fn.getAtt('FinPlanService', 'LoadBalancerDNS').toString()}/api/auth/callback/cognito`,
+        ],
+        logoutUrls: [
+          'http://localhost:3000',
+        ],
+      },
+      preventUserExistenceErrors: true,
+    });
+
+    // Create Cognito User Pool Domain
+    const userPoolDomain = userPool.addDomain('FinPlanUserPoolDomain', {
+      cognitoDomain: {
+        domainPrefix: `finplan-${this.account}`,
+      },
+    });
+
     // Create Fargate Service with Application Load Balancer
     const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
       this,
@@ -97,6 +169,9 @@ export class FinPlanStack extends cdk.Stack {
             PORT: '3000',
             DYNAMODB_TABLE_NAME: userDataTable.tableName,
             AWS_REGION: this.region,
+            COGNITO_USER_POOL_ID: userPool.userPoolId,
+            COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
+            COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
           },
         },
         publicLoadBalancer: true,
@@ -168,6 +243,30 @@ export class FinPlanStack extends cdk.Stack {
       value: userDataTable.tableName,
       description: 'DynamoDB table for user data',
       exportName: 'FinPlanDynamoDBTableName',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: userPool.userPoolId,
+      description: 'Cognito User Pool ID',
+      exportName: 'FinPlanUserPoolId',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: userPoolClient.userPoolClientId,
+      description: 'Cognito User Pool Client ID',
+      exportName: 'FinPlanUserPoolClientId',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolDomain', {
+      value: userPoolDomain.domainName,
+      description: 'Cognito User Pool Domain',
+      exportName: 'FinPlanUserPoolDomain',
+    });
+
+    new cdk.CfnOutput(this, 'CognitoIssuer', {
+      value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
+      description: 'Cognito Issuer URL for NextAuth',
+      exportName: 'FinPlanCognitoIssuer',
     });
   }
 }

@@ -4,7 +4,7 @@ A comprehensive financial planning and retirement web application built with Nex
 
 ## Features
 
-- **Google Authentication** - Secure sign-in with Google OAuth
+- **AWS Cognito Authentication** - Secure sign-in with email/password
 - **User Data Storage** - DynamoDB for fast, scalable data storage
 - **Dashboard** - Overview of your financial health with key metrics and insights
 - **Retirement Calculator** - Interactive calculator to project your retirement savings and income
@@ -17,7 +17,7 @@ A comprehensive financial planning and retirement web application built with Nex
 - **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS 4
-- **Authentication**: NextAuth.js with Google OAuth
+- **Authentication**: NextAuth.js with AWS Cognito
 - **Data Storage**: Amazon DynamoDB
 - **Infrastructure**: AWS CDK (ECS Fargate, DynamoDB)
 - **Font**: Geist Sans & Geist Mono
@@ -32,14 +32,18 @@ A comprehensive financial planning and retirement web application built with Nex
 npm install
 ```
 
-2. **Set up Google Authentication** (5 minutes):
+2. **Set up environment variables:**
 
-See [QUICK_START_AUTH.md](./QUICK_START_AUTH.md) for step-by-step instructions.
+```bash
+cp .env.example .env.local
+```
 
-Quick version:
-- Get Google OAuth credentials from https://console.cloud.google.com
-- Copy `.env.example` to `.env.local`
-- Add your Google Client ID and Secret
+For local development, you'll need to deploy the infrastructure first to get Cognito credentials:
+```bash
+npm run cdk:deploy
+```
+
+Then copy the Cognito values from the CDK output to your `.env.local` file.
 
 3. **Run the development server:**
 
@@ -51,7 +55,7 @@ npm run dev
 
 http://localhost:3000
 
-You should see "Sign In with Google" in the navigation!
+You should see "Sign In" in the navigation!
 
 ## Project Structure
 
@@ -91,6 +95,8 @@ npm run cdk:deploy
 - Application Load Balancer
 - CloudWatch logging
 - Container image from your Next.js app
+- AWS Cognito User Pool for authentication
+- DynamoDB table for user data
 
 **Deployment time:** ~10-15 minutes
 
@@ -111,14 +117,13 @@ You can also deploy using:
 ## Authentication & Data Storage
 
 This application includes:
-- **Google OAuth Authentication** - Secure user sign-in
+- **AWS Cognito Authentication** - Secure user sign-in with email/password
 - **Amazon DynamoDB** - Fast, scalable NoSQL database for user data
 - **Automatic Scaling** - Pay-per-request billing with unlimited throughput
 
 ### Documentation
 
-- **[QUICK_START_AUTH.md](./QUICK_START_AUTH.md)** - Get authentication working in 5 minutes
-- **[AUTHENTICATION_SETUP.md](./AUTHENTICATION_SETUP.md)** - Complete authentication guide
+- **[COGNITO_AUTH_GUIDE.md](./COGNITO_AUTH_GUIDE.md)** - Complete Cognito authentication guide
 - **[DYNAMODB_GUIDE.md](./DYNAMODB_GUIDE.md)** - DynamoDB data storage guide
 
 ### Key Features
