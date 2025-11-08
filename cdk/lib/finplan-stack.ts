@@ -14,7 +14,7 @@ export class FinPlanStack extends cdk.Stack {
 
     // Create VPC with public and isolated subnets (no NAT Gateway)
     const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
-      maxAzs: 2,
+      maxAzs: 1,  // Single AZ for cost optimization
       natGateways: 0,  // No NAT Gateway - use VPC endpoints instead
       subnetConfiguration: [
         {

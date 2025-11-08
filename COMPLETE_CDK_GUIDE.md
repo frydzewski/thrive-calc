@@ -27,28 +27,48 @@ This comprehensive guide explains everything that was set up with AWS CDK and pr
 - Savings goals tracker
 - Investment portfolio manager
 - Financial reports and recommendations
+- AWS Cognito user authentication
+- DynamoDB data storage
 
 ### CDK Infrastructure Components
 
 The AWS CDK configuration deploys a **production-ready, scalable, containerized** web application with:
 
 1. **Networking Layer**
-   - VPC with public and private subnets across 2 availability zones
-   - NAT Gateway for private subnet internet access
+   - VPC with public and isolated subnets in 1 availability zone
+   - VPC Endpoints for AWS service access (no NAT Gateway)
    - Security groups with appropriate ingress/egress rules
 
-2. **Compute Layer**
+2. **VPC Endpoints (AWS Service Access)**
+   - DynamoDB Gateway Endpoint (FREE)
+   - S3 Gateway Endpoint (FREE)
+   - ECR API Interface Endpoint
+   - ECR Docker Interface Endpoint
+   - CloudWatch Logs Interface Endpoint
+
+3. **Compute Layer**
    - ECS Fargate cluster (serverless containers)
    - Auto-scaling from 1 to 10 tasks based on CPU and memory
    - Application Load Balancer for traffic distribution
    - Health checks to ensure application availability
 
-3. **Monitoring & Logging**
+4. **Authentication**
+   - AWS Cognito User Pool for user sign-up/sign-in
+   - Email verification and password reset
+   - OAuth 2.0 authorization code flow
+
+5. **Data Storage**
+   - DynamoDB table for user financial data
+   - Pay-per-request billing (no provisioned capacity)
+   - Global Secondary Index for efficient queries
+   - Point-in-time recovery enabled
+
+6. **Monitoring & Logging**
    - CloudWatch Log Group for centralized logging
    - Container Insights enabled on ECS cluster
    - CloudWatch metrics for scaling decisions
 
-4. **Container Configuration**
+7. **Container Configuration**
    - Multi-stage Docker build for optimized image size
    - Next.js standalone output mode for minimal footprint
    - Automatic image building and pushing to ECR (Elastic Container Registry)
@@ -69,7 +89,15 @@ claude-test/
 │       └── finplan-stack.ts          # Main infrastructure stack
 │
 ├── app/                              # Next.js application code
+│   ├── api/
+│   │   └── auth/
+│   │       └── [...nextauth]/
+│   │           └── route.ts          # NextAuth.js Cognito config
 │   ├── components/
+│   │   ├── Navigation.tsx            # Navigation with auth
+│   │   └── SessionProvider.tsx       # Auth session provider
+│   ├── lib/
+│   │   └── data-store.ts             # DynamoDB data access layer
 │   ├── dashboard/
 │   ├── retirement-calculator/
 │   ├── savings-goals/
@@ -92,7 +120,9 @@ claude-test/
 └── Documentation/
     ├── DEPLOYMENT.md                 # Detailed deployment guide
     ├── CDK_QUICK_REFERENCE.md        # Quick command reference
-    ├── AWS_CDK_SETUP.md              # Setup summary
+    ├── COGNITO_AUTH_GUIDE.md         # Cognito authentication guide
+    ├── DYNAMODB_GUIDE.md             # DynamoDB data storage guide
+    ├── VPC_ENDPOINTS_GUIDE.md        # VPC endpoints architecture
     └── COMPLETE_CDK_GUIDE.md         # This file
 ```
 
@@ -100,341 +130,209 @@ claude-test/
 
 ## Prerequisites
 
-Before deploying, ensure you have the following:
+### Required Tools
 
-### 1. AWS Account
+Before deploying, ensure you have:
 
-You need an active AWS account. If you don't have one:
-- Go to https://aws.amazon.com
-- Click "Create an AWS Account"
-- Follow the signup process
+1. **Node.js** (v18 or later)
+   ```bash
+   node --version  # Should be v18.0.0 or higher
+   ```
 
-### 2. AWS CLI
+2. **AWS CLI** (v2)
+   ```bash
+   aws --version  # Should be aws-cli/2.x.x
+   ```
 
-Install the AWS Command Line Interface:
+3. **AWS CDK CLI**
+   ```bash
+   npm install -g aws-cdk
+   cdk --version  # Should be 2.x.x
+   ```
 
-**macOS (using Homebrew):**
-```bash
-brew install awscli
-```
+4. **Docker** (for building container images)
+   ```bash
+   docker --version  # Should be Docker version 20+
+   ```
 
-**Linux:**
-```bash
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-```
+### AWS Account Setup
 
-**Windows:**
-Download from: https://aws.amazon.com/cli/
+1. **AWS Account**: You need an active AWS account
 
-**Verify installation:**
-```bash
-aws --version
-# Should output: aws-cli/2.x.x ...
-```
+2. **AWS Credentials**: Configure your AWS credentials
+   ```bash
+   aws configure
+   ```
 
-### 3. AWS Credentials
+   You'll need:
+   - AWS Access Key ID
+   - AWS Secret Access Key
+   - Default region (e.g., `us-east-1`)
+   - Default output format (e.g., `json`)
 
-Configure your AWS credentials:
+3. **IAM Permissions**: Your AWS user/role needs permissions for:
+   - VPC creation
+   - ECS/Fargate
+   - Application Load Balancer
+   - CloudWatch Logs
+   - ECR (Elastic Container Registry)
+   - DynamoDB
+   - Cognito
+   - IAM role creation
 
-```bash
-aws configure
-```
+### Project Setup
 
-You'll be prompted for:
-- **AWS Access Key ID**: Get from AWS Console → IAM → Users → Security Credentials
-- **AWS Secret Access Key**: Provided when you create the access key
-- **Default region**: e.g., `us-east-1`, `us-west-2`, `eu-west-1`
-- **Default output format**: `json`
+1. **Clone the repository** (if not already done)
+   ```bash
+   git clone https://github.com/yourusername/claude-test.git
+   cd claude-test
+   ```
 
-**Verify credentials work:**
-```bash
-aws sts get-caller-identity
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-This should return your AWS account details.
+3. **Generate NextAuth secret**
+   ```bash
+   openssl rand -base64 32
+   ```
 
-### 4. Docker
-
-Docker is required to build container images.
-
-**macOS:**
-- Download Docker Desktop from https://www.docker.com/products/docker-desktop
-- Install and start Docker Desktop
-
-**Linux:**
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-```
-
-**Windows:**
-- Download Docker Desktop from https://www.docker.com/products/docker-desktop
-- Install and start Docker Desktop
-
-**Verify Docker is running:**
-```bash
-docker --version
-docker info
-```
-
-### 5. Node.js & npm
-
-Already installed in your project (v25.1.0). Verify:
-```bash
-node --version
-npm --version
-```
-
-### 6. Project Dependencies
-
-All dependencies should already be installed, but if needed:
-```bash
-npm install
-```
+   Save this for your `.env.local` file.
 
 ---
 
 ## Understanding the Infrastructure
 
-### What Gets Created in AWS
-
-When you deploy with CDK, the following AWS resources are created:
-
-#### 1. VPC (Virtual Private Cloud)
-- **CIDR Block**: 10.0.0.0/16
-- **Public Subnets**: 2 subnets across different availability zones
-  - Used for the Application Load Balancer
-  - Have internet gateway access
-- **Private Subnets**: 2 subnets across different availability zones
-  - Used for ECS tasks (your containers)
-  - Access internet through NAT Gateway
-
-#### 2. ECS (Elastic Container Service)
-- **Cluster**: Named `finplan-cluster`
-- **Service**: Named `finplan-service`
-  - Launch Type: Fargate (serverless)
-  - Initial task count: 2
-  - CPU: 256 units (0.25 vCPU)
-  - Memory: 512 MB
-  - Container runs on port 3000
-
-#### 3. Application Load Balancer
-- **Type**: Public-facing (internet-facing)
-- **Listeners**: HTTP on port 80
-- **Target Group**: Routes to ECS tasks on port 3000
-- **Health Check**:
-  - Path: `/`
-  - Interval: 30 seconds
-  - Healthy threshold: 2 consecutive successes
-  - Unhealthy threshold: 3 consecutive failures
-
-#### 4. Auto Scaling
-- **Minimum capacity**: 1 task
-- **Maximum capacity**: 10 tasks
-- **CPU-based scaling**: Triggers at 70% CPU utilization
-- **Memory-based scaling**: Triggers at 80% memory utilization
-- **Cooldown periods**: 60 seconds for scale in/out
-
-#### 5. CloudWatch Logs
-- **Log Group**: `/ecs/finplan`
-- **Retention**: 7 days
-- **Streams**: One per task
-
-#### 6. ECR (Elastic Container Registry)
-- Automatically created by CDK
-- Stores your Docker images
-- Images are automatically tagged and pushed during deployment
-
-### Architecture Diagram
+### VPC Architecture (Single AZ)
 
 ```
-                          Internet
-                             │
-                             │
-                    ┌────────▼────────┐
-                    │   Route 53      │ (Optional - for custom domain)
-                    └────────┬────────┘
-                             │
-                    ┌────────▼─────────────────────┐
-                    │  Application Load Balancer   │
-                    │  (Public Subnets)             │
-                    │  - Health Checks              │
-                    │  - SSL/TLS (optional)         │
-                    └────────┬─────────────────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-         ┌────▼────┐    ┌────▼────┐   ┌────▼────┐
-         │ ECS Task│    │ ECS Task│   │ ECS Task│
-         │   #1    │    │   #2    │   │   #n    │
-         │         │    │         │   │         │
-         │ Next.js │    │ Next.js │   │ Next.js │
-         │Container│    │Container│   │Container│
-         │         │    │         │   │         │
-         │ Port    │    │ Port    │   │ Port    │
-         │ 3000    │    │ 3000    │   │ 3000    │
-         └────┬────┘    └────┬────┘   └────┬────┘
-              │              │              │
-              │   (Private Subnets)         │
-              │                             │
-              └──────────────┬──────────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │  NAT Gateway     │
-                    │  (Public Subnet) │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │ Internet Gateway │
-                    └──────────────────┘
-
-              Logs sent to CloudWatch
-              ┌──────────────────┐
-              │  CloudWatch      │
-              │  Logs            │
-              │  /ecs/finplan    │
-              └──────────────────┘
+                    Internet
+                        ↓
+         ┌─────────────────────────────┐
+         │  Application Load Balancer  │  (Public Subnet)
+         └─────────────┬───────────────┘
+                       ↓
+         ┌─────────────────────────────┐
+         │   ECS Fargate Tasks (1-10)  │  (Isolated Subnet)
+         └─────────────┬───────────────┘
+                       ↓
+         ┌─────────────────────────────┐
+         │      VPC Endpoints          │
+         │  - DynamoDB (Gateway)       │
+         │  - S3 (Gateway)             │
+         │  - ECR API (Interface)      │
+         │  - ECR Docker (Interface)   │
+         │  - CloudWatch Logs          │
+         └─────────────┬───────────────┘
+                       ↓
+              AWS Services
 ```
 
-### How Traffic Flows
+### Key Infrastructure Decisions
 
-1. **User Request** → Internet
-2. **Load Balancer** receives request on port 80
-3. **Target Group** routes to healthy ECS task
-4. **ECS Task** (container) processes request
-5. **Response** travels back through load balancer to user
+1. **Single AZ (1 Availability Zone)**
+   - Cost optimization: ~$55/month
+   - Suitable for development and small-scale production
+   - For high availability, change `maxAzs: 1` to `maxAzs: 2`
 
-### Auto Scaling Behavior
+2. **No NAT Gateway**
+   - Saves $32.40/month
+   - Uses VPC endpoints instead for AWS service access
+   - ECS tasks have no internet access (better security)
 
-**Scale Out (Add tasks):**
-- When CPU > 70% for 60 seconds
-- Or memory > 80% for 60 seconds
-- Adds 1 task at a time
-- Maximum 10 tasks
+3. **VPC Endpoints**
+   - Gateway endpoints (DynamoDB, S3): FREE
+   - Interface endpoints (ECR, CloudWatch): ~$21.60/month (1 AZ)
+   - Provides AWS service access without internet
 
-**Scale In (Remove tasks):**
-- When CPU < 70% for 60 seconds
-- And memory < 80% for 60 seconds
-- Removes 1 task at a time
-- Minimum 1 task
+4. **ECS Fargate**
+   - Serverless containers (no EC2 instances to manage)
+   - Pay only for running tasks
+   - Auto-scaling based on CPU and memory
+
+5. **Application Load Balancer**
+   - Distributes traffic across ECS tasks
+   - Health checks ensure only healthy tasks receive traffic
+   - SSL termination (if configured)
+
+6. **DynamoDB**
+   - Pay-per-request billing (no provisioned capacity)
+   - Unlimited scaling
+   - Single-digit millisecond performance
+
+7. **Cognito**
+   - Managed user authentication
+   - Free for up to 50,000 monthly active users
+   - Email verification and password reset included
 
 ---
 
 ## Step-by-Step Deployment
 
-### Method 1: Automated Deployment (Recommended)
+### Step 1: Bootstrap CDK (First Time Only)
 
-The easiest way to deploy is using the provided automation script:
-
-```bash
-# Navigate to your project directory
-cd /Users/frankrydzewski/claude/sample/claude-test
-
-# Run the deployment script
-./scripts/deploy.sh
-```
-
-**What the script does:**
-1. ✅ Checks AWS CLI is installed
-2. ✅ Verifies Docker is running
-3. ✅ Validates AWS credentials
-4. ✅ Checks if CDK is bootstrapped (bootstraps if needed)
-5. 🚀 Deploys the application
-
-**Follow the prompts:**
-- Confirm your AWS account and region
-- Type `y` to proceed with deployment
-- If CDK isn't bootstrapped, confirm bootstrap (first time only)
-
-### Method 2: Manual Deployment
-
-If you prefer to run commands manually:
-
-#### Step 1: Bootstrap CDK (First Time Only)
-
-CDK needs to create resources in your AWS account for deployments:
+CDK needs to create resources in your AWS account to manage deployments.
 
 ```bash
 npm run cdk:bootstrap
 ```
 
-**What this does:**
-- Creates an S3 bucket for CDK assets
-- Creates ECR repository for Docker images
-- Creates IAM roles for deployments
-- Sets up necessary permissions
-
-**Output:**
-```
- ✅  Environment aws://123456789012/us-east-1 bootstrapped
+Or manually:
+```bash
+cd cdk
+cdk bootstrap
 ```
 
-**Note:** You only need to do this once per AWS account/region combination.
+This creates:
+- S3 bucket for CDK assets
+- ECR repository for container images
+- IAM roles for deployments
 
-#### Step 2: Preview the Infrastructure
+**You only need to do this once per AWS account/region.**
 
-See what will be created:
+### Step 2: Synthesize CloudFormation Template
+
+Generate the CloudFormation template to see what will be created:
 
 ```bash
 npm run cdk:synth
 ```
 
-This generates CloudFormation templates. Review the output to understand what resources will be created.
-
-#### Step 3: Preview Changes
-
-Before deploying, see what changes will be made:
-
+Or manually:
 ```bash
-npm run cdk:diff
+cd cdk
+cdk synth
 ```
 
-**Output shows:**
-- Resources to be created (green +)
-- Resources to be modified (yellow ~)
-- Resources to be deleted (red -)
+This shows you the CloudFormation YAML that will be deployed.
 
-#### Step 4: Deploy to AWS
+### Step 3: Deploy the Stack
 
-Deploy the application:
+Deploy the infrastructure to AWS:
 
 ```bash
 npm run cdk:deploy
 ```
 
-**What happens during deployment:**
+Or manually:
+```bash
+cd cdk
+cdk deploy --require-approval never
+```
 
-1. **Building Docker Image** (2-3 minutes)
-   - Installs Node.js dependencies
-   - Builds Next.js application
-   - Creates optimized production image
+**This will:**
+1. Build your Next.js application
+2. Build the Docker image
+3. Push the image to ECR
+4. Create all AWS resources
+5. Deploy your application
 
-2. **Pushing to ECR** (1-2 minutes)
-   - Creates ECR repository if needed
-   - Pushes Docker image to registry
+**Deployment time:** ~10-15 minutes
 
-3. **Creating Infrastructure** (8-12 minutes)
-   - Creates VPC and networking
-   - Creates ECS cluster
-   - Creates load balancer
-   - Configures security groups
-   - Sets up auto scaling
-   - Creates CloudWatch logs
+### Step 4: Note the Outputs
 
-4. **Starting Tasks** (1-2 minutes)
-   - Pulls Docker image
-   - Starts ECS tasks
-   - Waits for health checks to pass
-
-**Total Time:** ~10-15 minutes
-
-#### Step 5: Get Your Application URL
-
-After deployment completes, you'll see outputs:
+After deployment, CDK will show outputs like:
 
 ```
 Outputs:
@@ -442,928 +340,633 @@ FinPlanStack.LoadBalancerDNS = finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
 FinPlanStack.ServiceURL = http://finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
 FinPlanStack.ClusterName = finplan-cluster
 FinPlanStack.ServiceName = finplan-service
+FinPlanStack.DynamoDBTableName = finplan-user-data
+FinPlanStack.UserPoolId = us-east-1_AbCdEfGhI
+FinPlanStack.UserPoolClientId = 1a2b3c4d5e6f7g8h9i0j
+FinPlanStack.UserPoolDomain = finplan-123456789012
+FinPlanStack.CognitoIssuer = https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
 ```
 
-**Important:** Copy the `ServiceURL` - this is your application's public address.
+**Save these values!** You'll need them for:
+- Accessing your application
+- Local development configuration
+- Troubleshooting
 
----
+### Step 5: Get Cognito Client Secret
 
-## Verifying Your Deployment
-
-### 1. Wait for Health Checks
-
-After deployment completes, wait 2-3 minutes for:
-- Load balancer to register targets
-- Health checks to pass
-- Tasks to become healthy
-
-### 2. Check Application Status
+The Cognito Client Secret is not shown in the CDK output. Get it with:
 
 ```bash
-# View running tasks
-aws ecs list-tasks --cluster finplan-cluster
-
-# Should return task ARNs like:
-# "taskArns": [
-#     "arn:aws:ecs:us-east-1:123456789012:task/finplan-cluster/abc123..."
-# ]
+aws cognito-idp describe-user-pool-client \
+  --user-pool-id us-east-1_AbCdEfGhI \
+  --client-id 1a2b3c4d5e6f7g8h9i0j \
+  --query 'UserPoolClient.ClientSecret' \
+  --output text
 ```
 
-### 3. Check Target Health
+Replace `us-east-1_AbCdEfGhI` and `1a2b3c4d5e6f7g8h9i0j` with your actual values.
+
+### Step 6: Update Local Environment
+
+For local development, create `.env.local`:
 
 ```bash
-# Get target group ARN from AWS Console or:
-aws elbv2 describe-target-groups \
-  --names FinPlanStack-FinPlanServiceLBPublicListenerECSGroup* \
-  --query 'TargetGroups[0].TargetGroupArn'
-
-# Then check health (replace with your ARN):
-aws elbv2 describe-target-health \
-  --target-group-arn <your-target-group-arn>
+cp .env.example .env.local
 ```
 
-**Healthy targets show:**
-```json
-{
-    "TargetHealthDescriptions": [
-        {
-            "Target": {
-                "Id": "10.0.x.x",
-                "Port": 3000
-            },
-            "HealthCheckPort": "3000",
-            "TargetHealth": {
-                "State": "healthy"
-            }
-        }
-    ]
-}
+Update `.env.local` with the values from Step 4 and 5:
+
+```env
+NEXTAUTH_SECRET=your-generated-secret-from-step-3
+NEXTAUTH_URL=http://localhost:3000
+
+COGNITO_CLIENT_ID=1a2b3c4d5e6f7g8h9i0j
+COGNITO_CLIENT_SECRET=your-cognito-client-secret
+COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
+
+AWS_REGION=us-east-1
+DYNAMODB_TABLE_NAME=finplan-user-data
 ```
 
-### 4. Access Your Application
+### Step 7: Access Your Application
 
-Open your browser and navigate to the ServiceURL:
+Open the `ServiceURL` from the CDK output in your browser:
 
 ```
 http://finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
 ```
 
-You should see the FinPlan home page with:
-- "Plan Your Financial Future" header
-- Three feature cards
-- "Get Started" and "Try Calculator" buttons
+You should see the FinPlan landing page!
 
-### 5. Test the Features
+---
 
-Navigate through the application:
-- **Dashboard** - View financial overview
-- **Retirement Calculator** - Use sliders to project retirement
-- **Savings Goals** - Add and track goals
-- **Portfolio** - View investment holdings
-- **Reports** - See financial health score
+## Verifying Your Deployment
 
-### 6. View Logs
+### Check ECS Service
 
-Check application logs in real-time:
+```bash
+aws ecs list-tasks --cluster finplan-cluster --service-name finplan-service
+```
+
+You should see at least 1 running task.
+
+### Check Application Logs
 
 ```bash
 aws logs tail /ecs/finplan --follow
 ```
 
-**You should see:**
-- Next.js startup messages
-- HTTP request logs
-- Any application output
+This shows real-time logs from your application.
+
+### Check DynamoDB Table
+
+```bash
+aws dynamodb describe-table --table-name finplan-user-data
+```
+
+Should show the table status as `ACTIVE`.
+
+### Check Cognito User Pool
+
+```bash
+aws cognito-idp describe-user-pool --user-pool-id us-east-1_AbCdEfGhI
+```
+
+Should show the user pool configuration.
+
+### Test Authentication
+
+1. Navigate to your ServiceURL
+2. Click "Sign In"
+3. Click "Sign up" on the Cognito Hosted UI
+4. Create an account with your email
+5. Check your email for verification code
+6. Enter the code and sign in
 
 ---
 
 ## Managing Your Application
 
-### Updating the Application
-
-After making code changes:
-
-#### 1. Edit Your Code
-
-Make changes to any files in the `app/` directory.
-
-#### 2. Test Locally
+### View Running Tasks
 
 ```bash
-npm run dev
-# Visit http://localhost:3000
+aws ecs list-tasks \
+  --cluster finplan-cluster \
+  --service-name finplan-service
 ```
 
-#### 3. Deploy Changes
+### View Task Details
 
 ```bash
-npm run cdk:deploy
+aws ecs describe-tasks \
+  --cluster finplan-cluster \
+  --tasks <task-arn-from-above>
 ```
 
-**What happens:**
-- New Docker image is built with your changes
-- Image is pushed to ECR
-- ECS performs rolling update
-- Old tasks are replaced with new ones
-- Zero-downtime deployment
-
-**Deployment time:** ~5-8 minutes (faster than initial deploy)
-
-### Viewing Logs
-
-**Real-time logs:**
-```bash
-aws logs tail /ecs/finplan --follow
-```
-
-**Last hour:**
-```bash
-aws logs tail /ecs/finplan --since 1h
-```
-
-**Last 100 lines:**
-```bash
-aws logs tail /ecs/finplan -n 100
-```
-
-**Filter for errors:**
-```bash
-aws logs tail /ecs/finplan --follow --filter-pattern "ERROR"
-```
-
-### Scaling Manually
-
-Change the number of running tasks:
+### Restart Service (Force New Deployment)
 
 ```bash
-# Scale to 5 tasks
 aws ecs update-service \
   --cluster finplan-cluster \
   --service finplan-service \
-  --desired-count 5
+  --force-new-deployment
 ```
 
-**Note:** Auto scaling will still adjust based on CPU/memory.
+This pulls the latest Docker image and restarts tasks.
 
-### Viewing Metrics
-
-**In AWS Console:**
-1. Navigate to CloudWatch
-2. Select "Metrics" → "ECS"
-3. Choose your cluster and service
-4. View CPU, memory, request count, etc.
-
-**Via CLI:**
-```bash
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/ECS \
-  --metric-name CPUUtilization \
-  --dimensions Name=ServiceName,Value=finplan-service \
-               Name=ClusterName,Value=finplan-cluster \
-  --start-time 2025-01-01T00:00:00Z \
-  --end-time 2025-01-01T23:59:59Z \
-  --period 3600 \
-  --statistics Average
-```
-
-### Destroying Resources
-
-When you want to remove everything:
+### Scale Service Manually
 
 ```bash
-npm run cdk:destroy
+aws ecs update-service \
+  --cluster finplan-cluster \
+  --service finplan-service \
+  --desired-count 3
 ```
 
-**Confirm deletion:**
+Changes the number of running tasks to 3.
+
+### View Application Logs
+
+```bash
+# Follow logs in real-time
+aws logs tail /ecs/finplan --follow
+
+# View last 1 hour of logs
+aws logs tail /ecs/finplan --since 1h
+
+# Filter logs
+aws logs tail /ecs/finplan --follow --filter-pattern "ERROR"
 ```
-Are you sure you want to delete: FinPlanStack (y/n)? y
-```
 
-**What gets deleted:**
-- All ECS tasks
-- Load balancer
-- VPC and subnets
-- Log groups
-- ECR images
-- All created resources
+### Update Application Code
 
-**Time:** ~5-10 minutes
+1. Make changes to your code
+2. Commit to git
+3. Run deployment:
+   ```bash
+   npm run cdk:deploy
+   ```
 
-**⚠️ Warning:** This is permanent and cannot be undone.
+CDK will:
+- Build new Docker image
+- Push to ECR
+- Update ECS service
+- Perform rolling deployment (zero downtime)
 
 ---
 
 ## Cost Management
 
-### Monthly Cost Breakdown
+### Monthly Cost Breakdown (1 AZ, 1 Task)
 
-| Resource | Configuration | Monthly Cost (USD) |
-|----------|--------------|-------------------|
-| **Application Load Balancer** | 1 ALB, 730 hours | $16.20 |
-| **Load Balancer Data** | Minimal traffic | $1-3 |
-| **NAT Gateway** | 1 NAT, 730 hours | $32.85 |
-| **NAT Gateway Data** | 10 GB processed | $0.45 |
-| **ECS Fargate - CPU** | 2 tasks × 0.25 vCPU × 730 hours | $7.30 |
-| **ECS Fargate - Memory** | 2 tasks × 0.5 GB × 730 hours | $3.65 |
-| **CloudWatch Logs** | 1 GB ingested, 7-day retention | $0.50 |
-| **ECR Storage** | 1 GB | $0.10 |
-| **Data Transfer** | Minimal outbound | $1-5 |
-| **Total Estimated** | | **$63-70/month** |
+| Component | Cost/Month | Notes |
+|-----------|------------|-------|
+| ECS Fargate (1 task) | $12.46 | 0.25 vCPU, 512 MB RAM |
+| Application Load Balancer | $18.00 | $0.025/hour |
+| VPC Interface Endpoints | $21.60 | 3 endpoints × $7.20 |
+| CloudWatch Logs | ~$1.00 | First 5 GB free |
+| DynamoDB | ~$2.00 | Pay-per-request |
+| Cognito | FREE | Up to 50,000 MAU |
+| S3 (ECR images) | ~$0.50 | Image storage |
+| **Total** | **~$55/month** | For development |
 
 ### Cost Optimization Tips
 
-#### 1. Reduce Task Count
+1. **Use Spot pricing for ECS** (save 70%)
+   ```typescript
+   capacityProviderStrategy: [
+     { capacityProvider: 'FARGATE_SPOT', weight: 1 },
+   ],
+   ```
 
-Edit `cdk/lib/finplan-stack.ts`:
+2. **Reduce log retention**
+   ```typescript
+   retention: logs.RetentionDays.THREE_DAYS,  // Instead of ONE_WEEK
+   ```
 
-```typescript
-desiredCount: 1,  // Change from 2 to 1
-```
+3. **Use Savings Plans** for consistent usage
+   - 1-year term: 40% discount
+   - 3-year term: 60% discount
 
-Redeploy:
+4. **Scale to zero during non-business hours**
+   ```bash
+   # Stop tasks at night
+   aws ecs update-service --cluster finplan-cluster \
+     --service finplan-service --desired-count 0
+
+   # Start tasks in morning
+   aws ecs update-service --cluster finplan-cluster \
+     --service finplan-service --desired-count 1
+   ```
+
+5. **Use multi-AZ only for production**
+   - Development: `maxAzs: 1` (~$55/month)
+   - Production: `maxAzs: 2` (~$77/month)
+
+### Cost Monitoring
+
+View your costs in AWS Cost Explorer:
+- Go to AWS Console → Billing → Cost Explorer
+- Filter by service (ECS, ALB, VPC, etc.)
+- Set up budget alerts
+
+### Setting Up Budget Alerts
+
 ```bash
-npm run cdk:deploy
-```
-
-**Savings:** ~$5-6/month
-
-#### 2. Use Public Subnets (Remove NAT Gateway)
-
-⚠️ **Security consideration:** Tasks will have public IPs
-
-Edit `cdk/lib/finplan-stack.ts`:
-
-```typescript
-assignPublicIp: true,  // Change from false
-taskSubnets: {
-  subnetType: ec2.SubnetType.PUBLIC,  // Change from PRIVATE_WITH_EGRESS
-},
-```
-
-Remove NAT Gateway from VPC:
-```typescript
-natGateways: 0,  // Change from 1
-```
-
-**Savings:** ~$33/month
-
-#### 3. Reduce Log Retention
-
-Edit `cdk/lib/finplan-stack.ts`:
-
-```typescript
-retention: logs.RetentionDays.ONE_DAY,  // Change from ONE_WEEK
-```
-
-**Savings:** Minimal (~$0.20/month)
-
-#### 4. Use Spot Capacity (Advanced)
-
-For non-production workloads, consider Fargate Spot:
-
-```typescript
-capacityProviderStrategies: [
-  {
-    capacityProvider: 'FARGATE_SPOT',
-    weight: 1,
-  },
-],
-```
-
-**Savings:** ~70% on compute costs
-
-### Monitoring Costs
-
-**In AWS Console:**
-1. Navigate to AWS Cost Explorer
-2. View current month spend
-3. Filter by service: ECS, EC2 (for NAT), ELB
-
-**Set up billing alerts:**
-```bash
-# Create SNS topic for alerts
-aws sns create-topic --name billing-alerts
-
-# Subscribe to email
-aws sns subscribe \
-  --topic-arn arn:aws:sns:us-east-1:123456789012:billing-alerts \
-  --protocol email \
-  --notification-endpoint your-email@example.com
-
-# Create billing alarm (via CloudWatch)
+aws budgets create-budget \
+  --account-id 123456789012 \
+  --budget file://budget.json \
+  --notifications-with-subscribers file://notifications.json
 ```
 
 ---
 
 ## Troubleshooting
 
-### Issue: CDK Deploy Fails
+### Issue: CDK Bootstrap Fails
 
-#### Symptom
-```
-Error: Need to perform AWS calls for account 123456789012, but no credentials configured
-```
+**Error:** `Unable to bootstrap: Access Denied`
+
+**Cause:** Missing IAM permissions
+
+**Solution:**
+- Ensure your AWS user/role has AdministratorAccess or equivalent
+- Check `aws sts get-caller-identity` to verify credentials
+
+### Issue: Docker Build Fails
+
+**Error:** `Cannot connect to the Docker daemon`
+
+**Cause:** Docker is not running
 
 **Solution:**
 ```bash
-# Configure AWS credentials
-aws configure
-
-# Verify
-aws sts get-caller-identity
+# Start Docker Desktop or Docker daemon
+sudo systemctl start docker  # Linux
+# Or start Docker Desktop app on Mac/Windows
 ```
 
----
+### Issue: ECS Tasks Keep Crashing
 
-#### Symptom
-```
-Error: Docker is not running
-```
+**Error:** Tasks start but immediately stop
+
+**Cause:** Application error or missing environment variables
 
 **Solution:**
-```bash
-# Start Docker Desktop (macOS/Windows)
-# Or on Linux:
-sudo systemctl start docker
+1. Check logs:
+   ```bash
+   aws logs tail /ecs/finplan --since 30m
+   ```
 
-# Verify
-docker info
-```
+2. Verify environment variables in task definition:
+   ```bash
+   aws ecs describe-task-definition \
+     --task-definition finplan-service
+   ```
 
----
+3. Check health check configuration:
+   ```typescript
+   fargateService.targetGroup.configureHealthCheck({
+     path: '/',  // Ensure this path returns 200 OK
+     interval: cdk.Duration.seconds(30),
+     timeout: cdk.Duration.seconds(5),
+   });
+   ```
 
-#### Symptom
-```
-Error: This stack uses assets, so the toolkit stack must be deployed
-```
+### Issue: Cannot Pull Docker Image
+
+**Error:** `CannotPullContainerError: pull image manifest has been retried`
+
+**Cause:** Missing VPC endpoints for ECR or S3
 
 **Solution:**
-```bash
-npm run cdk:bootstrap
-```
+- Ensure ECR API, ECR Docker, and S3 endpoints are created
+- Check endpoint security groups allow traffic from ECS tasks
 
----
+### Issue: Cannot Access DynamoDB
 
-### Issue: Cannot Access Application
+**Error:** `User: arn:aws:sts::xxx:assumed-role/xxx is not authorized to perform: dynamodb:GetItem`
 
-#### Symptom
-Browser shows "Connection refused" or timeout
+**Cause:** Missing IAM permissions for ECS task role
 
-**Solutions:**
-
-1. **Wait for health checks** (2-3 minutes after deploy)
-
-2. **Check task status:**
-```bash
-aws ecs describe-services \
-  --cluster finplan-cluster \
-  --services finplan-service \
-  --query 'services[0].deployments'
-```
-
-Look for `runningCount` = `desiredCount`
-
-3. **Check target health:**
-```bash
-# Get load balancer target groups
-aws elbv2 describe-target-groups \
-  --query 'TargetGroups[?contains(TargetGroupName, `FinPlan`)].TargetGroupArn'
-
-# Check health
-aws elbv2 describe-target-health \
-  --target-group-arn <your-arn>
-```
-
-Ensure state is "healthy"
-
-4. **Check security groups:**
-```bash
-# Get load balancer security group
-aws elbv2 describe-load-balancers \
-  --query 'LoadBalancers[?contains(LoadBalancerName, `FinPl`)].SecurityGroups'
-```
-
-Verify inbound rule allows port 80 from 0.0.0.0/0
-
----
-
-### Issue: Container Keeps Restarting
-
-#### Symptom
-Tasks start but immediately stop
-
-**Solutions:**
-
-1. **Check logs:**
-```bash
-aws logs tail /ecs/finplan --since 10m
-```
-
-Look for error messages
-
-2. **Test Docker image locally:**
-```bash
-# Build
-npm run docker:build
-
-# Run
-npm run docker:run
-
-# Visit http://localhost:3000
-# Check for errors
-```
-
-3. **Common issues:**
-   - Missing environment variables
-   - Incorrect port configuration
-   - Application crash on startup
-
-4. **Verify Next.js build:**
-```bash
-npm run build
-# Ensure build succeeds locally
-```
-
----
+**Solution:**
+- CDK should automatically grant permissions
+- Check task role has DynamoDB read/write access:
+  ```bash
+  aws iam list-attached-role-policies --role-name finplan-task-role
+  ```
 
 ### Issue: High Costs
 
-#### Symptom
-AWS bill is higher than expected
-
-**Solutions:**
-
-1. **Check current resources:**
-```bash
-# Count running tasks
-aws ecs list-tasks --cluster finplan-cluster
-
-# Should match your desired count (usually 2)
-```
-
-2. **Check auto scaling:**
-```bash
-aws ecs describe-services \
-  --cluster finplan-cluster \
-  --services finplan-service \
-  --query 'services[0].desiredCount'
-```
-
-3. **Review NAT Gateway usage:**
-   - NAT Gateway costs $0.045/hour + $0.045/GB
-   - Consider moving to public subnets for dev/test
-
-4. **Destroy when not needed:**
-```bash
-npm run cdk:destroy
-# Redeploy when needed with: npm run cdk:deploy
-```
-
----
-
-### Issue: Deployment is Slow
-
-#### Symptom
-Deployment takes longer than 15 minutes
-
-**Solutions:**
-
-1. **Normal for first deploy** - Subsequent deploys are faster
-
-2. **Check Docker build cache:**
-```bash
-# If too slow, clear cache
-docker system prune -a
-```
-
-3. **Increase timeout if needed:**
-Edit `cdk/lib/finplan-stack.ts` health check:
-```typescript
-timeout: cdk.Duration.seconds(10),  // Increase from 5
-```
-
----
-
-### Issue: Can't Delete Stack
-
-#### Symptom
-```
-Error: Stack has resources that must be manually deleted
-```
+**Symptom:** AWS bill is higher than expected
 
 **Solution:**
+1. Check running resources:
+   ```bash
+   aws ecs list-tasks --cluster finplan-cluster
+   aws elbv2 describe-load-balancers
+   ```
 
-1. **Empty S3 buckets:**
-```bash
-# Find CDK staging bucket
-aws s3 ls | grep cdktoolkit
+2. Check for multiple deployments:
+   ```bash
+   aws cloudformation list-stacks
+   ```
 
-# Empty it
-aws s3 rm s3://cdktoolkit-stagingbucket-xxxxx --recursive
-```
+3. Delete unused stacks:
+   ```bash
+   npm run cdk:destroy
+   ```
 
-2. **Delete ECR images:**
-```bash
-# List repositories
-aws ecr describe-repositories
+### Issue: Cannot Authenticate with Cognito
 
-# Delete images
-aws ecr batch-delete-image \
-  --repository-name finplanstack-xxx \
-  --image-ids imageTag=latest
-```
+**Error:** `Invalid redirect_uri`
 
-3. **Retry destroy:**
-```bash
-npm run cdk:destroy
-```
+**Cause:** Callback URL not configured in User Pool Client
+
+**Solution:**
+- Update CDK stack with correct callback URL:
+  ```typescript
+  callbackUrls: [
+    'http://localhost:3000/api/auth/callback/cognito',
+    `http://${fargateService.loadBalancer.loadBalancerDnsName}/api/auth/callback/cognito`,
+  ],
+  ```
+
+- Redeploy:
+  ```bash
+  npm run cdk:deploy
+  ```
 
 ---
 
 ## Advanced Configuration
 
-### Adding Environment Variables
-
-Edit `cdk/lib/finplan-stack.ts`:
-
-```typescript
-taskImageOptions: {
-  // ... existing config ...
-  environment: {
-    NODE_ENV: 'production',
-    PORT: '3000',
-    // Add your variables:
-    DATABASE_URL: 'postgresql://...',
-    API_KEY: 'your-api-key',
-    NEXT_PUBLIC_API_URL: 'https://api.example.com',
-  },
-},
-```
-
-**For sensitive values, use Secrets Manager:**
-
-1. **Create secret:**
-```bash
-aws secretsmanager create-secret \
-  --name finplan/database-url \
-  --secret-string "postgresql://..."
-```
-
-2. **Reference in CDK:**
-```typescript
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-
-// In your stack:
-const dbSecret = secretsmanager.Secret.fromSecretNameV2(
-  this,
-  'DBSecret',
-  'finplan/database-url'
-);
-
-// In task definition:
-secrets: {
-  DATABASE_URL: ecs.Secret.fromSecretsManager(dbSecret),
-},
-```
-
-3. **Redeploy:**
-```bash
-npm run cdk:deploy
-```
-
 ### Adding a Custom Domain
 
-#### Prerequisites
-- Domain registered in Route53 (or transfer DNS to Route53)
-- SSL certificate from ACM
+1. **Register domain in Route 53** or import existing domain
 
-#### Steps
+2. **Create SSL certificate in ACM**:
+   ```bash
+   aws acm request-certificate \
+     --domain-name finplan.example.com \
+     --validation-method DNS
+   ```
 
-1. **Request certificate:**
-```bash
-aws acm request-certificate \
-  --domain-name finplan.yourdomain.com \
-  --validation-method DNS
-```
+3. **Update CDK stack**:
+   ```typescript
+   import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+   import * as route53 from 'aws-cdk-lib/aws-route53';
+   import * as targets from 'aws-cdk-lib/aws-route53-targets';
 
-2. **Add to CDK stack:**
+   // Import existing certificate
+   const certificate = acm.Certificate.fromCertificateArn(
+     this,
+     'Certificate',
+     'arn:aws:acm:us-east-1:123456789012:certificate/xxx'
+   );
+
+   // Add to Fargate service
+   const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
+     this,
+     'FinPlanService',
+     {
+       // ... existing config
+       certificate,
+       protocol: elbv2.ApplicationProtocol.HTTPS,
+       redirectHTTP: true,
+     }
+   );
+
+   // Create Route 53 record
+   const hostedZone = route53.HostedZone.fromLookup(this, 'Zone', {
+     domainName: 'example.com',
+   });
+
+   new route53.ARecord(this, 'AliasRecord', {
+     zone: hostedZone,
+     recordName: 'finplan',
+     target: route53.RecordTarget.fromAlias(
+       new targets.LoadBalancerTarget(fargateService.loadBalancer)
+     ),
+   });
+   ```
+
+### Enabling HTTPS
+
+Add SSL certificate to the Application Load Balancer:
 
 ```typescript
-import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 
-// Get hosted zone
-const zone = route53.HostedZone.fromLookup(this, 'Zone', {
-  domainName: 'yourdomain.com',
-});
-
-// Get certificate
 const certificate = acm.Certificate.fromCertificateArn(
   this,
   'Certificate',
-  'arn:aws:acm:us-east-1:123456789012:certificate/xxx'
+  'arn:aws:acm:region:account:certificate/xxx'
 );
 
-// Update Fargate service:
 const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
   this,
   'FinPlanService',
   {
-    // ... existing config ...
-    domainName: 'finplan.yourdomain.com',
-    domainZone: zone,
-    certificate: certificate,
-    redirectHTTP: true,  // Redirect HTTP to HTTPS
-  }
-);
-```
-
-3. **Deploy:**
-```bash
-npm run cdk:deploy
-```
-
-4. **Access:**
-```
-https://finplan.yourdomain.com
-```
-
-### Adding a Database
-
-#### Option 1: RDS PostgreSQL
-
-```typescript
-import * as rds from 'aws-cdk-lib/aws-rds';
-
-// Add to stack:
-const database = new rds.DatabaseInstance(this, 'Database', {
-  engine: rds.DatabaseInstanceEngine.postgres({
-    version: rds.PostgresEngineVersion.VER_15,
-  }),
-  instanceType: ec2.InstanceType.of(
-    ec2.InstanceClass.T3,
-    ec2.InstanceSize.MICRO
-  ),
-  vpc,
-  vpcSubnets: {
-    subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-  },
-  allocatedStorage: 20,
-  maxAllocatedStorage: 100,
-  databaseName: 'finplan',
-  credentials: rds.Credentials.fromGeneratedSecret('postgres'),
-});
-
-// Allow ECS tasks to access database
-database.connections.allowFrom(
-  fargateService.service,
-  ec2.Port.tcp(5432)
-);
-
-// Add connection string to task environment
-const dbSecret = database.secret!;
-// Use in task definition secrets (see environment variables section)
-```
-
-#### Option 2: DynamoDB
-
-```typescript
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-
-const table = new dynamodb.Table(this, 'Table', {
-  partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-  sortKey: { name: 'goalId', type: dynamodb.AttributeType.STRING },
-  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-  encryption: dynamodb.TableEncryption.AWS_MANAGED,
-});
-
-// Grant access to ECS tasks
-table.grantReadWriteData(fargateService.taskDefinition.taskRole);
-
-// Add table name to environment
-environment: {
-  DYNAMODB_TABLE_NAME: table.tableName,
-}
-```
-
-### Enabling HTTPS/SSL
-
-1. **Request ACM certificate** (see Custom Domain section)
-
-2. **Update load balancer:**
-
-```typescript
-const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
-  this,
-  'FinPlanService',
-  {
-    // ... existing config ...
-    protocol: ecs_patterns.ApplicationProtocol.HTTPS,
-    certificate: certificate,
+    // ... existing config
+    certificate,
+    protocol: elbv2.ApplicationProtocol.HTTPS,
     redirectHTTP: true,
   }
 );
 ```
 
-3. **Deploy:**
-```bash
-npm run cdk:deploy
+### Multi-AZ Deployment
+
+For high availability, update to 2 or 3 availability zones:
+
+```typescript
+const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+  maxAzs: 2,  // or 3
+  natGateways: 0,
+  // ... rest of config
+});
 ```
 
-### Setting Up CI/CD with GitHub Actions
+**Cost impact:**
+- 1 AZ: ~$55/month
+- 2 AZ: ~$77/month (interface endpoints double)
+- 3 AZ: ~$99/month
 
-The project includes a GitHub Actions workflow at `.github/workflows/deploy.yml`.
+### Auto-Scaling Configuration
 
-#### Setup Steps
+Customize auto-scaling behavior:
 
-1. **Create IAM OIDC Provider:**
+```typescript
+const scaling = fargateService.service.autoScaleTaskCount({
+  minCapacity: 1,
+  maxCapacity: 20,  // Increase max capacity
+});
 
-```bash
-# In AWS Console: IAM → Identity Providers → Add Provider
-# Provider type: OpenID Connect
-# Provider URL: https://token.actions.githubusercontent.com
-# Audience: sts.amazonaws.com
+// Scale on CPU
+scaling.scaleOnCpuUtilization('CpuScaling', {
+  targetUtilizationPercent: 50,  // More aggressive scaling
+  scaleInCooldown: cdk.Duration.seconds(120),
+  scaleOutCooldown: cdk.Duration.seconds(30),
+});
+
+// Scale on memory
+scaling.scaleOnMemoryUtilization('MemoryScaling', {
+  targetUtilizationPercent: 70,
+  scaleInCooldown: cdk.Duration.seconds(120),
+  scaleOutCooldown: cdk.Duration.seconds(30),
+});
+
+// Scale on request count
+scaling.scaleOnRequestCount('RequestCountScaling', {
+  requestsPerTarget: 1000,
+  targetGroup: fargateService.targetGroup,
+});
 ```
 
-2. **Create IAM Role:**
+### Adding Environment Variables
 
-Create role with this trust policy:
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:yourusername/claude-test:*"
-        }
-      }
-    }
-  ]
-}
+Add environment variables to ECS tasks:
+
+```typescript
+environment: {
+  NODE_ENV: 'production',
+  PORT: '3000',
+  DYNAMODB_TABLE_NAME: userDataTable.tableName,
+  AWS_REGION: this.region,
+  COGNITO_USER_POOL_ID: userPool.userPoolId,
+  COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
+  COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
+  // Add custom variables
+  FEATURE_FLAG_REPORTS: 'true',
+  LOG_LEVEL: 'info',
+},
 ```
 
-Attach policies:
-- `PowerUserAccess` (or more restricted CDK deployment policy)
+### Using Secrets Manager
 
-3. **Add GitHub Secret:**
+Store sensitive values in Secrets Manager:
 
-In your repository:
-- Go to Settings → Secrets and variables → Actions
-- Add secret: `AWS_ROLE_ARN`
-- Value: `arn:aws:iam::123456789012:role/GitHubActionsRole`
+```typescript
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
 
-4. **Push to main:**
+const secret = secretsmanager.Secret.fromSecretNameV2(
+  this,
+  'NextAuthSecret',
+  'finplan/nextauth-secret'
+);
 
-```bash
-git add .
-git commit -m "Deploy to AWS"
-git push origin main
+// In task definition
+secrets: {
+  NEXTAUTH_SECRET: ecs.Secret.fromSecretsManager(secret),
+},
 ```
 
-GitHub Actions will automatically deploy on every push to `main`.
+### CI/CD with GitHub Actions
+
+The included `.github/workflows/deploy.yml` provides automated deployment on push to main:
+
+```yaml
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy with CDK
+        run: npm run cdk:deploy
+```
+
+**Setup:**
+1. Add AWS credentials to GitHub Secrets:
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+
+2. Push to main branch:
+   ```bash
+   git push origin main
+   ```
+
+3. GitHub Actions will automatically deploy
 
 ---
 
-## Best Practices
+## Cleanup / Destroy Stack
 
-### Security
+To delete all AWS resources:
 
-1. **Use secrets for sensitive data:**
-   - AWS Secrets Manager for credentials
-   - Never hardcode secrets in code
+```bash
+npm run cdk:destroy
+```
 
-2. **Enable encryption:**
-   - RDS encryption at rest
-   - S3 bucket encryption
-   - ECS task encryption
+Or manually:
+```bash
+cd cdk
+cdk destroy
+```
 
-3. **Restrict security groups:**
-   - Only allow necessary ports
-   - Use least privilege access
+**This will delete:**
+- ECS cluster and tasks
+- Application Load Balancer
+- VPC and subnets
+- VPC endpoints
+- CloudWatch log groups
+- **Note:** DynamoDB table and Cognito User Pool are retained by default
 
-4. **Enable CloudTrail:**
-   - Audit all API calls
-   - Monitor for suspicious activity
+To delete DynamoDB table and Cognito manually:
+```bash
+aws dynamodb delete-table --table-name finplan-user-data
+aws cognito-idp delete-user-pool --user-pool-id us-east-1_AbCdEfGhI
+```
 
-### Performance
-
-1. **Use CloudFront CDN** (for global users):
-   ```typescript
-   import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-
-   new cloudfront.Distribution(this, 'CDN', {
-     defaultBehavior: {
-       origin: new origins.LoadBalancerV2Origin(fargateService.loadBalancer),
-     },
-   });
-   ```
-
-2. **Enable caching:**
-   - Cache static assets in Next.js
-   - Use CDN for images and CSS
-
-3. **Optimize container:**
-   - Multi-stage Docker build (already implemented)
-   - Minimize image size
-
-### Monitoring
-
-1. **Set up alarms:**
-   ```typescript
-   import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
-   import * as sns from 'aws-cdk-lib/aws-sns';
-
-   const topic = new sns.Topic(this, 'AlarmTopic');
-
-   new cloudwatch.Alarm(this, 'HighCPU', {
-     metric: fargateService.service.metricCpuUtilization(),
-     threshold: 90,
-     evaluationPeriods: 2,
-   }).addAlarmAction(new cloudwatch_actions.SnsAction(topic));
-   ```
-
-2. **Enable X-Ray tracing:**
-   - Trace requests through your application
-   - Identify performance bottlenecks
-
-3. **Set up dashboards:**
-   - CloudWatch dashboard for key metrics
-   - Monitor errors, latency, and throughput
-
-### Cost Optimization
-
-1. **Use Fargate Spot** for dev/test
-2. **Right-size your tasks** (CPU and memory)
-3. **Remove NAT Gateway** for non-production
-4. **Set up auto-shutdown** for dev environments
-5. **Use Reserved Capacity** for predictable workloads
+**Warning:** This will permanently delete all user data!
 
 ---
 
 ## Summary
 
 You now have a complete understanding of:
+- ✅ What infrastructure was deployed
+- ✅ How to deploy your application
+- ✅ How to manage and monitor your application
+- ✅ How to optimize costs
+- ✅ How to troubleshoot common issues
+- ✅ How to configure advanced features
 
-✅ **What was built** - Production-ready Next.js app with AWS CDK infrastructure
-✅ **How to deploy** - Automated or manual deployment process
-✅ **How to manage** - Updating, scaling, and monitoring your application
-✅ **How to optimize** - Reducing costs and improving performance
-✅ **How to troubleshoot** - Common issues and solutions
-✅ **How to extend** - Adding databases, custom domains, and CI/CD
+**Key Files:**
+- `cdk/lib/finplan-stack.ts` - Infrastructure definition
+- `Dockerfile` - Container image
+- `app/api/auth/[...nextauth]/route.ts` - Authentication config
+- `app/lib/data-store.ts` - DynamoDB data access
 
-## Quick Reference Commands
+**Estimated Costs:**
+- Development (1 AZ, 1 task): ~$55/month
+- Production (2 AZ, 2 tasks): ~$90/month
+- Production (2 AZ, 5 tasks): ~$130/month
 
-```bash
-# Deploy
-./scripts/deploy.sh                  # Automated
-npm run cdk:deploy                   # Manual
+**Next Steps:**
+1. Deploy with `npm run cdk:deploy`
+2. Test authentication and data storage
+3. Configure custom domain (optional)
+4. Set up CI/CD with GitHub Actions
+5. Monitor costs in AWS Cost Explorer
 
-# Monitor
-aws logs tail /ecs/finplan --follow  # View logs
-aws ecs list-tasks --cluster finplan-cluster  # List tasks
-
-# Update
-# (Make code changes, then:)
-npm run cdk:deploy
-
-# Cleanup
-npm run cdk:destroy
-```
-
-## Next Steps
-
-1. **Deploy the application:**
-   ```bash
-   ./scripts/deploy.sh
-   ```
-
-2. **Test all features** in your deployed application
-
-3. **Set up monitoring and alarms**
-
-4. **Consider adding:**
-   - Database (RDS or DynamoDB)
-   - Authentication (Cognito or Auth0)
-   - Custom domain with SSL
-   - CI/CD pipeline
-
-5. **Optimize for production:**
-   - Review security settings
-   - Set up backups
-   - Configure monitoring
-   - Implement cost controls
-
----
-
-**You're ready to deploy!** 🚀
-
-If you have questions or run into issues, refer to the troubleshooting section or AWS documentation.
+Enjoy your fully deployed FinPlan application! 🚀
