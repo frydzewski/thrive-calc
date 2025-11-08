@@ -90,7 +90,8 @@ npm run cdk:deploy
 ```
 
 **What gets deployed:**
-- VPC with public and private subnets
+- VPC with public and isolated subnets (no NAT Gateway)
+- VPC endpoints for AWS services (DynamoDB, S3, ECR, CloudWatch)
 - ECS Fargate cluster with auto-scaling
 - Application Load Balancer
 - CloudWatch logging
@@ -100,11 +101,12 @@ npm run cdk:deploy
 
 **Deployment time:** ~10-15 minutes
 
-**Estimated cost:** ~$65-80/month
+**Estimated cost:** ~$55-77/month (varies by configuration)
 
 For detailed deployment instructions, see:
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Complete deployment guide
 - [CDK_QUICK_REFERENCE.md](./CDK_QUICK_REFERENCE.md) - Quick command reference
+- [VPC_ENDPOINTS_GUIDE.md](./VPC_ENDPOINTS_GUIDE.md) - VPC endpoints architecture and cost analysis
 
 ### Alternative Deployment Options
 

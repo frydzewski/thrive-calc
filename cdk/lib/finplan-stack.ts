@@ -12,10 +12,10 @@ export class FinPlanStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Create VPC with public and private subnets
+    // Create VPC with public and isolated subnets (no NAT Gateway)
     const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
       maxAzs: 2,
-      natGateways: 1,
+      natGateways: 0,  // No NAT Gateway - use VPC endpoints instead
       subnetConfiguration: [
         {
           cidrMask: 24,
@@ -24,10 +24,39 @@ export class FinPlanStack extends cdk.Stack {
         },
         {
           cidrMask: 24,
-          name: 'Private',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          name: 'Isolated',
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         },
       ],
+    });
+
+    // Add VPC Endpoints for AWS services
+    // DynamoDB Gateway Endpoint (free)
+    vpc.addGatewayEndpoint('DynamoDBEndpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+    });
+
+    // S3 Gateway Endpoint (free) - needed for ECR image layers
+    vpc.addGatewayEndpoint('S3Endpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    // ECR API Interface Endpoint - for pulling images
+    vpc.addInterfaceEndpoint('EcrApiEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.ECR,
+      privateDnsEnabled: true,
+    });
+
+    // ECR Docker Interface Endpoint - for pulling image layers
+    vpc.addInterfaceEndpoint('EcrDkrEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
+      privateDnsEnabled: true,
+    });
+
+    // CloudWatch Logs Interface Endpoint - for logging
+    vpc.addInterfaceEndpoint('CloudWatchLogsEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+      privateDnsEnabled: true,
     });
 
     // Create ECS Cluster
@@ -177,7 +206,7 @@ export class FinPlanStack extends cdk.Stack {
         publicLoadBalancer: true,
         assignPublicIp: false,
         taskSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         },
       }
     );
