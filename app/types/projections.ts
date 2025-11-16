@@ -162,7 +162,25 @@ function applyInvestmentReturns(
 }
 
 /**
- * Calculate scenario projection
+ * Calculate scenario projection with year-by-year financial modeling
+ *
+ * Assumption Buckets:
+ * - Scenarios are divided into age-based assumption buckets (e.g., working years, early retirement, late retirement)
+ * - Each bucket defines financial assumptions for that life stage (income, spending, inflation rate, etc.)
+ * - As the projection moves through years, it switches between buckets based on the user's age
+ * - Example: Bucket A (30-55), Bucket B (56-65), Bucket C (66-90)
+ *
+ * Inflation Handling:
+ * - Inflation compounds year-over-year using each year's bucket-specific rate
+ * - This ensures smooth transitions between buckets with different inflation rates
+ * - Example: 2% for 26 years, then 3% for 10 years, then 2.5% thereafter
+ *
+ * @param scenario - The scenario with assumption buckets and lump sum events
+ * @param userProfile - User's profile (age calculation)
+ * @param currentAccounts - Current account balances (aggregated by type)
+ * @param startYear - Projection start year (typically current year)
+ * @param endYear - Projection end year (calculated from max bucket age)
+ * @returns Complete scenario projection with annual data and summary
  */
 export function calculateScenarioProjection(
   scenario: Scenario,
@@ -191,10 +209,16 @@ export function calculateScenarioProjection(
   // Initialize balances by account TYPE (aggregate current accounts)
   const accountBalances = aggregateAccountsByType(currentAccounts);
 
+  // Track cumulative inflation factor across bucket transitions
+  // This compounds year-over-year as we move through different buckets with different rates
+  let cumulativeInflationFactor = 1.0;
+
   for (let year = startYear; year <= endYear; year++) {
     const age = currentAge + (year - currentYear);
 
     // Get applicable assumption bucket for this age
+    // Buckets define different financial assumptions for different life stages
+    // e.g., Bucket A: working years, Bucket B: early retirement, Bucket C: late retirement
     const bucket = getBucketForAge(scenario.assumptionBuckets, age);
 
     if (!bucket) {
@@ -205,12 +229,11 @@ export function calculateScenarioProjection(
 
     const assumptions = bucket.assumptions;
 
-    // Calculate inflation factor from start year
-    const yearsFromBase = year - startYear;
-    const inflationFactor = calculateInflationFactor(
-      assumptions.inflationRate || 0,
-      yearsFromBase
-    );
+    // Apply this year's inflation rate to the cumulative factor
+    // This ensures inflation compounds correctly across bucket transitions
+    const yearInflationRate = assumptions.inflationRate || 0;
+    cumulativeInflationFactor *= (1 + yearInflationRate / 100);
+    const inflationFactor = cumulativeInflationFactor;
 
     // === INCOME (apply inflation to assumptions) ===
     const employmentIncome =
