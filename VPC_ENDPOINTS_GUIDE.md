@@ -71,9 +71,19 @@ Interface endpoints cost $0.01/hour per AZ + data transfer charges.
    - Purpose: Send application logs to CloudWatch
    - Cost: $0.01/hour × 2 AZs = $14.40/month
 
-**Total Interface Endpoint Cost**: $43.20/month for all 3 endpoints
+4. **Secrets Manager Interface Endpoint**
+   - Service: `com.amazonaws.region.secretsmanager`
+   - Purpose: Access AWS Secrets Manager for Cognito client secret
+   - Cost: $0.01/hour × 2 AZs = $14.40/month
 
-**Note**: In practice, you can optimize this further by using a single AZ during development, reducing the cost to ~$21.60/month.
+5. **Cognito IDP Interface Endpoint**
+   - Service: `com.amazonaws.region.cognito-idp`
+   - Purpose: Cognito user authentication and identity management
+   - Cost: $0.01/hour × 2 AZs = $14.40/month
+
+**Total Interface Endpoint Cost**: $72.00/month for all 5 endpoints (2 AZs)
+
+**Note**: In development with 1 AZ, cost would be $36.00/month (5 endpoints × $7.20).
 
 ## VPC Configuration
 

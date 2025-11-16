@@ -6,7 +6,10 @@ A comprehensive financial planning and retirement web application built with Nex
 
 - **AWS Cognito Authentication** - Secure sign-in with email/password
 - **User Data Storage** - DynamoDB for fast, scalable data storage
+- **User Profile Management** - Personalized profile with onboarding flow and firstname display
 - **Dashboard** - Overview of your financial health with key metrics and insights
+- **Accounts** - Track and manage your financial accounts (401k, IRA, Brokerage, Savings, etc.)
+- **Scenario Planning** - Create detailed financial scenarios with age-bucketed assumptions, multiple scenarios, and flexible planning
 - **Retirement Calculator** - Interactive calculator to project your retirement savings and income
 - **Savings Goals** - Create and track multiple savings goals with progress monitoring
 - **Portfolio Management** - Track your investment holdings, performance, and asset allocation
@@ -61,15 +64,29 @@ You should see "Sign In" in the navigation!
 
 ```
 app/
+├── api/                    # API routes for data operations
+│   ├── accounts/          # Account management endpoints
+│   ├── auth/              # NextAuth.js authentication
+│   ├── profile/           # User profile endpoints
+│   ├── projections/       # Financial projection endpoints
+│   ├── savings-goals/     # Savings goals CRUD operations
+│   └── scenarios/         # Scenario planning endpoints
+├── accounts/              # Account management page
 ├── components/
-│   └── Navigation.tsx      # Main navigation component
-├── dashboard/              # Dashboard page
-├── retirement-calculator/  # Retirement calculator with interactive sliders
-├── savings-goals/          # Savings goals tracker
-├── portfolio/              # Investment portfolio tracker
-├── reports/                # Financial reports and recommendations
-├── layout.tsx              # Root layout with navigation
-└── page.tsx                # Landing page
+│   ├── Navigation.tsx     # Main navigation component
+│   ├── AccountModal.tsx   # Account creation/editing modal
+│   ├── ScenarioModal.tsx  # Scenario planning modal
+│   └── OnboardingModal.tsx # First-time user onboarding
+├── profile/               # User profile page
+├── retirement-calculator/ # Retirement calculator with interactive sliders
+├── savings-goals/         # Savings goals tracker
+├── scenarios/             # Scenario planning page
+├── portfolio/             # Investment portfolio tracker
+├── reports/               # Financial reports and recommendations
+├── types/                 # TypeScript type definitions
+├── lib/                   # Utility functions and data store
+├── layout.tsx             # Root layout with navigation
+└── page.tsx               # Landing page
 ```
 
 ## Deployment
@@ -101,7 +118,7 @@ npm run cdk:deploy
 
 **Deployment time:** ~10-15 minutes
 
-**Estimated cost:** ~$55-77/month (varies by configuration)
+**Estimated cost:** ~$105-127/month (varies by configuration and usage)
 
 For detailed deployment instructions, see:
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Complete deployment guide

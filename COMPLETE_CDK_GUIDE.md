@@ -45,6 +45,8 @@ The AWS CDK configuration deploys a **production-ready, scalable, containerized*
    - ECR API Interface Endpoint
    - ECR Docker Interface Endpoint
    - CloudWatch Logs Interface Endpoint
+   - Secrets Manager Interface Endpoint
+   - Cognito IDP Interface Endpoint
 
 3. **Compute Layer**
    - ECS Fargate cluster (serverless containers)
@@ -232,18 +234,18 @@ Before deploying, ensure you have:
 ### Key Infrastructure Decisions
 
 1. **Single AZ (1 Availability Zone)**
-   - Cost optimization: ~$55/month
+   - Cost optimization: ~$105/month (1 task, 2 AZs)
    - Suitable for development and small-scale production
    - For high availability, change `maxAzs: 1` to `maxAzs: 2`
 
 2. **No NAT Gateway**
-   - Saves $32.40/month
+   - Saves $32.40/month (NAT Gateway cost avoided)
    - Uses VPC endpoints instead for AWS service access
    - ECS tasks have no internet access (better security)
 
 3. **VPC Endpoints**
    - Gateway endpoints (DynamoDB, S3): FREE
-   - Interface endpoints (ECR, CloudWatch): ~$21.60/month (1 AZ)
+   - Interface endpoints (5 endpoints): ~$72/month (2 AZs × 5 endpoints × $7.20)
    - Provides AWS service access without internet
 
 4. **ECS Fargate**
@@ -517,18 +519,18 @@ CDK will:
 
 ## Cost Management
 
-### Monthly Cost Breakdown (1 AZ, 1 Task)
+### Monthly Cost Breakdown (2 AZs, 1 Task)
 
 | Component | Cost/Month | Notes |
 |-----------|------------|-------|
 | ECS Fargate (1 task) | $12.46 | 0.25 vCPU, 512 MB RAM |
 | Application Load Balancer | $18.00 | $0.025/hour |
-| VPC Interface Endpoints | $21.60 | 3 endpoints × $7.20 |
+| VPC Interface Endpoints | $72.00 | 5 endpoints × 2 AZs × $7.20 |
 | CloudWatch Logs | ~$1.00 | First 5 GB free |
 | DynamoDB | ~$2.00 | Pay-per-request |
 | Cognito | FREE | Up to 50,000 MAU |
 | S3 (ECR images) | ~$0.50 | Image storage |
-| **Total** | **~$55/month** | For development |
+| **Total** | **~$105/month** | Current configuration |
 
 ### Cost Optimization Tips
 
@@ -560,8 +562,8 @@ CDK will:
    ```
 
 5. **Use multi-AZ only for production**
-   - Development: `maxAzs: 1` (~$55/month)
-   - Production: `maxAzs: 2` (~$77/month)
+   - Current (2 AZs, 1 task): ~$105/month
+   - Production (2 AZs, 2+ tasks): ~$120-150/month
 
 ### Cost Monitoring
 
@@ -789,10 +791,10 @@ const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
 });
 ```
 
-**Cost impact:**
-- 1 AZ: ~$55/month
-- 2 AZ: ~$77/month (interface endpoints double)
-- 3 AZ: ~$99/month
+**Cost impact (5 interface endpoints):**
+- 1 AZ: ~$69/month (5 endpoints × $7.20 + base)
+- 2 AZ: ~$105/month (current configuration)
+- 3 AZ: ~$141/month (interface endpoints triple)
 
 ### Auto-Scaling Configuration
 
@@ -958,9 +960,9 @@ You now have a complete understanding of:
 - `app/lib/data-store.ts` - DynamoDB data access
 
 **Estimated Costs:**
-- Development (1 AZ, 1 task): ~$55/month
-- Production (2 AZ, 2 tasks): ~$90/month
-- Production (2 AZ, 5 tasks): ~$130/month
+- Current (2 AZ, 1 task): ~$105/month
+- Production (2 AZ, 2 tasks): ~$120/month
+- Production (2 AZ, 5 tasks): ~$160/month
 
 **Next Steps:**
 1. Deploy with `npm run cdk:deploy`

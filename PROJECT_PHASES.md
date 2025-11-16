@@ -1,7 +1,7 @@
 # FinPlan Development Phases
 
-**Last Updated:** 2025-11-14
-**Status:** Phase 1, Session 1.1 - In Progress (Logged in User Experience)
+**Last Updated:** 2025-11-16
+**Status:** Phase 1, Session 1.6 - Next Up (Scenario Projections Functionality)
 
 ---
 
@@ -48,42 +48,42 @@ This document tracks the phased development of FinPlan, a web-based financial an
 ---
 
 ### Session 1.1: Logged in User Experience
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 **Estimated Time:** 3-4 hours
 **Priority:** Critical - Fix authentication and establish user profile system
 
 **Tasks:**
-- [ ] **Fix OAuth Callback Error**
-  - [ ] Add COGNITO_CLIENT_SECRET to ECS task definition in CDK (from Secrets Manager)
-  - [ ] Update NextAuth config with error handling and debug mode
-  - [ ] Verify all auth environment variables (NEXTAUTH_URL, COGNITO_ISSUER, etc.)
-  - [ ] Deploy CDK changes and verify login works
+- [x] **Fix OAuth Callback Error**
+  - [x] Add COGNITO_CLIENT_SECRET to ECS task definition in CDK (from Secrets Manager)
+  - [x] Update NextAuth config with error handling and debug mode
+  - [x] Verify all auth environment variables (NEXTAUTH_URL, COGNITO_ISSUER, etc.)
+  - [x] Deploy CDK changes and verify login works
 
-- [ ] **Create User Profile API**
-  - [ ] Create POST/GET /api/profile endpoint
-  - [ ] Implement profile storage in DynamoDB with dataType: "user-profile"
-  - [ ] Profile schema: { username, firstname, onboardingComplete }
-  - [ ] Use existing data-store.ts functions for DynamoDB operations
+- [x] **Create User Profile API**
+  - [x] Create POST/GET /api/profile endpoint
+  - [x] Implement profile storage in DynamoDB with dataType: "user-profile"
+  - [x] Profile schema: { username, firstname, onboardingComplete }
+  - [x] Use existing data-store.ts functions for DynamoDB operations
 
-- [ ] **Build First Login Onboarding**
-  - [ ] Create OnboardingModal.tsx component
-  - [ ] Detect first login (check if user profile exists)
-  - [ ] Show modal form to collect firstname
-  - [ ] Save profile to DynamoDB on form submission
-  - [ ] Mark onboardingComplete: true after successful save
+- [x] **Build First Login Onboarding**
+  - [x] Create OnboardingModal.tsx component
+  - [x] Detect first login (check if user profile exists)
+  - [x] Show modal form to collect firstname
+  - [x] Save profile to DynamoDB on form submission
+  - [x] Mark onboardingComplete: true after successful save
 
-- [ ] **Update Navigation with Welcome Message**
-  - [ ] Fetch user profile in Navigation component
-  - [ ] Display "Welcome, {firstname}" when logged in
-  - [ ] Fallback to email if profile not yet loaded
-  - [ ] Add loading state while profile is fetching
+- [x] **Update Navigation with Welcome Message**
+  - [x] Fetch user profile in Navigation component
+  - [x] Display "Welcome, {firstname}" when logged in
+  - [x] Fallback to email if profile not yet loaded
+  - [x] Add loading state while profile is fetching
 
-- [ ] **Add Authentication Guards to Dashboard**
-  - [ ] Add useSession check to dashboard page
-  - [ ] Redirect unauthenticated users to sign-in
-  - [ ] Show personalized welcome message on dashboard
+- [x] **Add Authentication Guards to Dashboard**
+  - [x] Add useSession check to dashboard page
+  - [x] Redirect unauthenticated users to sign-in
+  - [x] Show personalized welcome message on dashboard
 
-- [ ] **Optional: Configure Custom Cognito Domain**
+- [ ] **Optional: Configure Custom Cognito Domain** (Deferred)
   - [ ] Request ACM certificate for auth.thrivecalc.com in us-east-1
   - [ ] Add custom domain configuration to Cognito User Pool in CDK
   - [ ] Create Route53 A record pointing to Cognito CloudFront distribution
@@ -129,6 +129,110 @@ This document tracks the phased development of FinPlan, a web-based financial an
 - [ ] Test authentication guard on dashboard
 - [ ] Verify unauthenticated users are redirected properly
 - [ ] Optional: Test custom domain login experience
+
+---
+
+### Session 1.2: Accounts Management
+**Status:** ✅ Complete
+**Estimated Time:** 2-3 hours
+**Priority:** High - Enable users to track their financial accounts
+
+**Tasks:**
+- [x] Create Account types and interfaces
+- [x] Create API routes for accounts (POST, GET, PUT, DELETE)
+- [x] Build AccountModal component for creating/editing accounts
+- [x] Add accounts page (/accounts) with account list and management
+- [x] Implement account CRUD operations with DynamoDB
+- [x] Add account type selector (401k, IRA, Brokerage, Savings, Checking)
+- [x] Add form validation for account data
+
+**Files Created/Modified:**
+- `app/types/accounts.ts` - Account type definitions
+- `app/api/accounts/route.ts` - List and create accounts
+- `app/api/accounts/[id]/route.ts` - Update and delete accounts
+- `app/components/AccountModal.tsx` - Account creation/editing modal
+- `app/accounts/page.tsx` - Accounts management page
+- `app/components/Navigation.tsx` - Add accounts link
+
+**Acceptance Criteria:**
+- ✅ Users can create accounts with name, type, and balance
+- ✅ Accounts persist to DynamoDB with dataType: "account"
+- ✅ Users can edit existing accounts
+- ✅ Users can delete accounts
+- ✅ Account list displays all user accounts
+- ✅ Form validation ensures valid inputs
+- ✅ Account types include 401k, traditional-ira, roth-ira, brokerage, savings, checking
+
+---
+
+### Session 1.5: Scenario Planning
+**Status:** ✅ Complete
+**Estimated Time:** 4-5 hours
+**Priority:** High - Enable comprehensive financial scenario planning
+
+**Tasks:**
+- [x] Create Scenario types and interfaces with validation functions
+- [x] Design age-bucketed assumptions structure (multiple buckets per scenario)
+- [x] Create API routes for scenarios (POST, GET, PUT, DELETE)
+- [x] Add set-default endpoint for managing default scenario
+- [x] Build ScenarioModal component with multi-bucket support
+- [x] Add scenarios page (/scenarios) with scenario list and management
+- [x] Implement scenario CRUD operations with DynamoDB
+- [x] Add lump sum events support (one-time income/expenses)
+- [x] Add form validation for all scenario data
+- [x] Implement assumption bucket ordering and gap/overlap validation
+
+**Files Created/Modified:**
+- `app/types/scenarios.ts` - Scenario type definitions and validation
+- `app/api/scenarios/route.ts` - List and create scenarios
+- `app/api/scenarios/[id]/route.ts` - Get, update, and delete scenarios
+- `app/api/scenarios/[id]/set-default/route.ts` - Set default scenario
+- `app/components/ScenarioModal.tsx` - Comprehensive scenario planning modal
+- `app/scenarios/page.tsx` - Scenarios management page
+- `app/components/Navigation.tsx` - Add scenarios link
+
+**Acceptance Criteria:**
+- ✅ Users can create scenarios with multiple age-bucketed assumptions
+- ✅ Each bucket covers a specific age range (e.g., 25-65, 66-100)
+- ✅ Buckets validated for gaps and overlaps
+- ✅ Assumptions include income, spending, contributions, rates, retirement age
+- ✅ Lump sum events for one-time income or expenses
+- ✅ Scenarios persist to DynamoDB with dataType: "scenario"
+- ✅ Users can set one scenario as default
+- ✅ Users can edit and delete scenarios
+- ✅ Form validation prevents invalid data entry
+- ✅ Comprehensive validation functions for all scenario data
+
+---
+
+### Session 1.6: Scenario Projections (Phase 2)
+**Status:** ⏳ Not Started
+**Estimated Time:** 3-4 hours
+**Priority:** High - Calculate and display financial projections from scenarios
+
+**Tasks:**
+- [ ] Create projection calculation engine
+- [ ] Implement year-by-year calculations with inflation
+- [ ] Handle contribution limits and tax implications
+- [ ] Calculate account balances across all account types
+- [ ] Store projections in DynamoDB
+- [ ] Add projection visualization components
+- [ ] Create comparison view for multiple scenarios
+
+**Files to Create/Modify:**
+- `app/lib/projection-engine.ts` - Projection calculation logic
+- `app/api/scenarios/[id]/calculate/route.ts` - Calculate projections
+- `app/types/projections.ts` - Projection type definitions
+- `app/components/ProjectionChart.tsx` - Visualization component
+
+**Acceptance Criteria:**
+- [ ] Projections calculated year-by-year from current age to end age
+- [ ] Inflation applied correctly to income, spending, and contributions
+- [ ] Account-specific contributions tracked per account type
+- [ ] Lump sum events applied at correct ages
+- [ ] Social Security income starts at specified age
+- [ ] Results stored and retrievable from DynamoDB
+- [ ] Visualization shows account balances over time
 
 ---
 
@@ -474,10 +578,13 @@ This document tracks the phased development of FinPlan, a web-based financial an
 
 ## Progress Tracking
 
-### Completed Sessions: 1 / 14
+### Completed Sessions: 4 / 17
 - [x] Planning complete
 - [x] Session 1 (Savings Goals API)
-- [ ] Session 1.1 (Logged in User Experience) 🔄 IN PROGRESS
+- [x] Session 1.1 (Logged in User Experience)
+- [x] Session 1.2 (Accounts Management)
+- [x] Session 1.5 (Scenario Planning)
+- [ ] Session 1.6 (Scenario Projections) 🔄 NEXT
 - [ ] Session 2 (Retirement Plans API)
 - [ ] Session 3 (Dashboard Integration)
 - [ ] Session 4 (Authentication Guards)
@@ -543,5 +650,5 @@ This document tracks the phased development of FinPlan, a web-based financial an
 
 ---
 
-**Current Session:** Phase 1, Session 1.1 - Logged in User Experience (In Progress)
-**Next Session:** Phase 1, Session 2 - Retirement Plans API & Storage
+**Current Session:** Phase 1, Session 1.6 - Scenario Projections (Next Up)
+**Previous Session:** Phase 1, Session 1.5 - Scenario Planning (Complete)
