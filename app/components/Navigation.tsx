@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
+import { UserProfile } from '../types/profile';
 
 const navItems = [
-  { name: 'Home', path: '/' },
-  { name: 'Dashboard', path: '/dashboard' },
-  { name: 'Retirement Calculator', path: '/retirement-calculator' },
+  { name: 'Dashboard', path: '/' },
+  { name: 'Accounts', path: '/accounts' },
+  { name: 'Scenarios', path: '/scenarios' },
   { name: 'Savings Goals', path: '/savings-goals' },
   { name: 'Portfolio', path: '/portfolio' },
   { name: 'Reports', path: '/reports' },
@@ -17,6 +19,28 @@ const navItems = [
 export default function Navigation() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  // Fetch profile when user is authenticated
+  useEffect(() => {
+    if (session?.user?.email && !profile && !isLoadingProfile) {
+      setIsLoadingProfile(true);
+      fetch('/api/profile')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.profile) {
+            setProfile(data.profile);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch profile:', error);
+        })
+        .finally(() => {
+          setIsLoadingProfile(false);
+        });
+    }
+  }, [session, profile, isLoadingProfile]);
 
   return (
     <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
@@ -64,9 +88,17 @@ export default function Navigation() {
                     />
                   )}
                   <span className="text-sm text-zinc-700 dark:text-zinc-300 hidden md:block">
-                    {session.user?.name || session.user?.email}
+                    {profile?.firstname
+                      ? `Welcome, ${profile.firstname}`
+                      : session.user?.name || session.user?.email}
                   </span>
                 </div>
+                <Link
+                  href="/profile"
+                  className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
+                >
+                  Profile
+                </Link>
                 <button
                   onClick={() => signOut()}
                   className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
@@ -76,10 +108,10 @@ export default function Navigation() {
               </div>
             ) : (
               <button
-                onClick={() => signIn('google')}
+                onClick={() => signIn('cognito')}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
               >
-                Sign In with Google
+                Sign In
               </button>
             )}
           </div>

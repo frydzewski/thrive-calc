@@ -22,11 +22,25 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+    async redirect({ url, baseUrl }) {
+      // After successful sign-in, redirect to dashboard (root)
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // Handle relative URLs
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+      // Default to dashboard (root)
+      return baseUrl;
+    },
   },
-  pages: {
-    signIn: '/auth/signin',
-  },
+  debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
 };
 
 const handler = NextAuth(authOptions);

@@ -2,9 +2,15 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -14,7 +20,7 @@ export class FinPlanStack extends cdk.Stack {
 
     // Create VPC with public and isolated subnets (no NAT Gateway)
     const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
-      maxAzs: 1,  // Single AZ for cost optimization
+      maxAzs: 2,  // 2 AZs required for Application Load Balancer
       natGateways: 0,  // No NAT Gateway - use VPC endpoints instead
       subnetConfiguration: [
         {
@@ -59,6 +65,18 @@ export class FinPlanStack extends cdk.Stack {
       privateDnsEnabled: true,
     });
 
+    // Secrets Manager Interface Endpoint - for accessing secrets
+    vpc.addInterfaceEndpoint('SecretsManagerEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+      privateDnsEnabled: true,
+    });
+
+    // Cognito Identity Provider Interface Endpoint - for authentication
+    vpc.addInterfaceEndpoint('CognitoIdpEndpoint', {
+      service: new ec2.InterfaceVpcEndpointService(`com.amazonaws.${this.region}.cognito-idp`),
+      privateDnsEnabled: true,
+    });
+
     // Create ECS Cluster
     const cluster = new ecs.Cluster(this, 'FinPlanCluster', {
       vpc,
@@ -87,7 +105,7 @@ export class FinPlanStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       pointInTimeRecovery: true,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // Changed to DESTROY for easier development cleanup
       timeToLiveAttribute: 'ttl',
     });
 
@@ -103,6 +121,26 @@ export class FinPlanStack extends cdk.Stack {
         type: dynamodb.AttributeType.STRING,
       },
     });
+
+    // Create secret for NextAuth
+    const nextAuthSecret = new secretsmanager.Secret(this, 'NextAuthSecret', {
+      secretName: 'finplan-nextauth-secret',
+      description: 'NextAuth.js secret for session encryption',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({}),
+        generateStringKey: 'secret',
+        excludePunctuation: true,
+        includeSpace: false,
+        passwordLength: 32,
+      },
+    });
+
+    // Import existing Cognito client secret from Secrets Manager
+    const cognitoClientSecret = secretsmanager.Secret.fromSecretCompleteArn(
+      this,
+      'CognitoClientSecret',
+      'arn:aws:secretsmanager:us-east-1:398106244340:secret:finplan-cognito-client-secret-pfdqpY'
+    );
 
     // Create Cognito User Pool
     const userPool = new cognito.UserPool(this, 'FinPlanUserPool', {
@@ -137,13 +175,14 @@ export class FinPlanStack extends cdk.Stack {
         requireSymbols: false,
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // Changed to DESTROY for easier development cleanup
     });
 
-    // Create Cognito User Pool Client
+    // Create Cognito User Pool Client (initially with localhost only)
     const userPoolClient = new cognito.UserPoolClient(this, 'FinPlanUserPoolClient', {
       userPool,
       userPoolClientName: 'finplan-web-client',
+      generateSecret: true,
       authFlows: {
         userPassword: true,
         userSrp: true,
@@ -159,7 +198,6 @@ export class FinPlanStack extends cdk.Stack {
         ],
         callbackUrls: [
           'http://localhost:3000/api/auth/callback/cognito',
-          `http://${cdk.Fn.getAtt('FinPlanService', 'LoadBalancerDNS').toString()}/api/auth/callback/cognito`,
         ],
         logoutUrls: [
           'http://localhost:3000',
@@ -175,6 +213,18 @@ export class FinPlanStack extends cdk.Stack {
       },
     });
 
+    // Import existing Route53 Hosted Zone for thrivecalc.com
+    const hostedZone = route53.HostedZone.fromLookup(this, 'ThriveCalcHostedZone', {
+      domainName: 'thrivecalc.com',
+    });
+
+    // Create ACM Certificate with automatic DNS validation
+    const certificate = new certificatemanager.Certificate(this, 'ThriveCalcCertificate', {
+      domainName: 'thrivecalc.com',
+      subjectAlternativeNames: ['www.thrivecalc.com'],
+      validation: certificatemanager.CertificateValidation.fromDns(hostedZone),
+    });
+
     // Create Fargate Service with Application Load Balancer
     const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
       this,
@@ -185,8 +235,15 @@ export class FinPlanStack extends cdk.Stack {
         memoryLimitMiB: 512,
         cpu: 256,
         desiredCount: 1,
+        certificate: certificate,
+        domainName: 'thrivecalc.com',
+        domainZone: hostedZone,
+        redirectHTTP: true,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
         taskImageOptions: {
-          image: ecs.ContainerImage.fromAsset(path.resolve(__dirname, '../..')),
+          image: ecs.ContainerImage.fromAsset(path.resolve(__dirname, '../..'), {
+            platform: ecr_assets.Platform.LINUX_AMD64, // Ensure x86_64 for ECS Fargate
+          }),
           containerName: 'finplan-app',
           containerPort: 3000,
           logDriver: ecs.LogDrivers.awsLogs({
@@ -201,15 +258,47 @@ export class FinPlanStack extends cdk.Stack {
             COGNITO_USER_POOL_ID: userPool.userPoolId,
             COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
             COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
+            // NEXTAUTH_URL will be added via escape hatch below
+          },
+          secrets: {
+            NEXTAUTH_SECRET: ecs.Secret.fromSecretsManager(nextAuthSecret, 'secret'),
+            COGNITO_CLIENT_SECRET: ecs.Secret.fromSecretsManager(cognitoClientSecret),
           },
         },
         publicLoadBalancer: true,
-        assignPublicIp: false,
+        assignPublicIp: true,
         taskSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+          subnetType: ec2.SubnetType.PUBLIC,
         },
       }
     );
+
+    // Add www subdomain pointing to ALB
+    new route53.ARecord(this, 'WwwARecord', {
+      zone: hostedZone,
+      recordName: 'www',
+      target: route53.RecordTarget.fromAlias(
+        new targets.LoadBalancerTarget(fargateService.loadBalancer)
+      ),
+    });
+
+    // Add NEXTAUTH_URL with HTTPS and domain name
+    const container = fargateService.taskDefinition.defaultContainer!;
+    container.addEnvironment(
+      'NEXTAUTH_URL',
+      'https://thrivecalc.com'
+    );
+
+    // Update Cognito User Pool Client with HTTPS callback URLs
+    const cfnUserPoolClient = userPoolClient.node.defaultChild as cognito.CfnUserPoolClient;
+    cfnUserPoolClient.callbackUrLs = [
+      'http://localhost:3000/api/auth/callback/cognito',
+      'https://thrivecalc.com/api/auth/callback/cognito'
+    ];
+    cfnUserPoolClient.logoutUrLs = [
+      'http://localhost:3000',
+      'https://thrivecalc.com'
+    ];
 
     // Configure health check
     fargateService.targetGroup.configureHealthCheck({
@@ -243,6 +332,14 @@ export class FinPlanStack extends cdk.Stack {
     // Grant DynamoDB permissions to ECS task role
     userDataTable.grantReadWriteData(fargateService.taskDefinition.taskRole);
 
+    // Grant Secrets Manager permissions to ECS task role (for runtime access)
+    nextAuthSecret.grantRead(fargateService.taskDefinition.taskRole);
+    cognitoClientSecret.grantRead(fargateService.taskDefinition.taskRole);
+
+    // Grant Secrets Manager permissions to ECS execution role (for container startup)
+    nextAuthSecret.grantRead(fargateService.taskDefinition.executionRole!);
+    cognitoClientSecret.grantRead(fargateService.taskDefinition.executionRole!);
+
     // Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
       value: fargateService.loadBalancer.loadBalancerDnsName,
@@ -251,9 +348,21 @@ export class FinPlanStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'ServiceURL', {
-      value: `http://${fargateService.loadBalancer.loadBalancerDnsName}`,
+      value: 'https://thrivecalc.com',
       description: 'URL of the FinPlan application',
       exportName: 'FinPlanServiceURL',
+    });
+
+    new cdk.CfnOutput(this, 'CertificateArn', {
+      value: certificate.certificateArn,
+      description: 'ACM Certificate ARN',
+      exportName: 'FinPlanCertificateArn',
+    });
+
+    new cdk.CfnOutput(this, 'HostedZoneId', {
+      value: hostedZone.hostedZoneId,
+      description: 'Route53 Hosted Zone ID (existing zone imported)',
+      exportName: 'FinPlanHostedZoneId',
     });
 
     new cdk.CfnOutput(this, 'ClusterName', {
@@ -296,6 +405,19 @@ export class FinPlanStack extends cdk.Stack {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
       description: 'Cognito Issuer URL for NextAuth',
       exportName: 'FinPlanCognitoIssuer',
+    });
+
+    new cdk.CfnOutput(this, 'PostDeploymentInstructions', {
+      value: [
+        'IMPORTANT: Complete these post-deployment steps:',
+        '1. Retrieve Cognito Client Secret:',
+        `   aws cognito-idp describe-user-pool-client --user-pool-id ${userPool.userPoolId} --client-id ${userPoolClient.userPoolClientId} --query UserPoolClient.ClientSecret --output text`,
+        '2. Store it in AWS Secrets Manager:',
+        '   aws secretsmanager create-secret --name finplan-cognito-client-secret --secret-string "<secret-from-step-1>"',
+        '3. Update ECS task definition to include COGNITO_CLIENT_SECRET from Secrets Manager',
+        'Note: NEXTAUTH_URL and Cognito callback URLs are now automatically configured with the load balancer DNS',
+      ].join('\n   '),
+      description: 'Post-deployment configuration steps',
     });
   }
 }

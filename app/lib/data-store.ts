@@ -13,7 +13,11 @@ const client = new DynamoDBClient({
   region: process.env.AWS_REGION || process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
 });
 
-const docClient = DynamoDBDocumentClient.from(client);
+const docClient = DynamoDBDocumentClient.from(client, {
+  marshallOptions: {
+    removeUndefinedValues: true,
+  },
+});
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || process.env.NEXT_PUBLIC_DYNAMODB_TABLE_NAME || 'finplan-user-data';
 
@@ -205,3 +209,8 @@ export async function updateUserData(
     throw new Error('Failed to update user data');
   }
 }
+
+/**
+ * Alias for listUserData for consistency
+ */
+export const queryUserData = listUserData;
