@@ -1,6 +1,15 @@
+/**
+ * Scenario Details Page
+ *
+ * Displays a comprehensive year-by-year financial projection for a scenario, including:
+ * - Summary metrics (final balance, peak balance, status, projection period)
+ * - Detailed annual breakdown of income, spending, contributions, and account balances
+ * - Visual indicators for deficit years
+ * - Overall projection summary statistics
+ */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -24,14 +33,7 @@ export default function ScenarioDetails() {
     }
   }, [status, router]);
 
-  // Fetch scenario details
-  useEffect(() => {
-    if (status === 'authenticated' && scenarioId) {
-      fetchScenario();
-    }
-  }, [status, scenarioId]);
-
-  const fetchScenario = async () => {
+  const fetchScenario = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -53,7 +55,14 @@ export default function ScenarioDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [scenarioId]);
+
+  // Fetch scenario details when authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && scenarioId) {
+      fetchScenario();
+    }
+  }, [status, scenarioId, fetchScenario]);
 
   // Loading state
   if (status === 'loading' || loading) {

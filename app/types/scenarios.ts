@@ -53,7 +53,12 @@ export interface Scenario {
   description?: string;
   assumptionBuckets: AssumptionBucket[];
   lumpSumEvents: LumpSumEvent[];
-  projection?: import('./projections').ScenarioProjection; // Calculated projection (stored with scenario)
+  /**
+   * Calculated financial projection for this scenario
+   * Automatically computed when scenario is created or assumptions are updated
+   * Stored with scenario to avoid recalculation on every fetch
+   */
+  projection?: import('./projections').ScenarioProjection;
   createdAt?: string;
   updatedAt?: string;
 }

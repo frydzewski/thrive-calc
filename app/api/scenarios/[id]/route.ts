@@ -11,7 +11,7 @@ import {
   validateUpdateScenario,
   validateBuckets,
 } from '@/app/types/scenarios';
-import { calculateScenarioProjection } from '@/app/types/projections';
+import { calculateScenarioProjection, calculateAge } from '@/app/types/projections';
 import { UserProfile } from '@/app/types/profile';
 import { Account } from '@/app/types/accounts';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,6 +19,15 @@ import { v4 as uuidv4 } from 'uuid';
 const DATA_TYPE = 'scenario';
 const PROFILE_DATA_TYPE = 'user-profile';
 const ACCOUNT_DATA_TYPE = 'account';
+
+/**
+ * Helper to calculate projection end year based on user's age and scenario assumptions
+ */
+function calculateProjectionEndYear(dateOfBirth: string, endAge: number): number {
+  const currentAge = calculateAge(dateOfBirth);
+  const currentYear = new Date().getFullYear();
+  return currentYear + (endAge - currentAge);
+}
 
 /**
  * GET /api/scenarios/[id] - Get a specific scenario
@@ -222,14 +231,16 @@ export async function PUT(
       ...updates,
     };
 
-    // Recalculate projection if scenario assumptions changed
-    let projection = existingRecord.data.projection; // Keep existing projection by default
+    // Recalculate projection only if financial assumptions changed
+    // Keeps existing projection for name/description updates to avoid unnecessary computation
+    let projection = existingRecord.data.projection;
     if (body.assumptionBuckets !== undefined || body.lumpSumEvents !== undefined) {
       try {
         const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
         const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
 
         if (profileRecord?.data) {
+          // Build user profile from stored data
           const userProfile: UserProfile = {
             username,
             firstname: profileRecord.data.firstname,
@@ -239,6 +250,7 @@ export async function PUT(
             onboardingComplete: profileRecord.data.onboardingComplete,
           };
 
+          // Aggregate user's accounts by type
           const accounts: Account[] = accountRecords.map((record) => ({
             id: record.recordId,
             username,
@@ -253,7 +265,7 @@ export async function PUT(
             updatedAt: record.updatedAt,
           }));
 
-          // Create temporary scenario for calculation
+          // Create temporary scenario with updated assumptions
           const tempScenario: Scenario = {
             id,
             username,
@@ -264,10 +276,10 @@ export async function PUT(
             lumpSumEvents: scenarioData.lumpSumEvents || [],
           };
 
-          // Calculate projection
+          // Calculate projection from current year to the end age specified in assumptions
           const currentYear = new Date().getFullYear();
           const endAge = Math.max(...tempScenario.assumptionBuckets.map((b) => b.endAge));
-          const endYear = currentYear + (endAge - Math.floor((new Date().getTime() - new Date(userProfile.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+          const endYear = calculateProjectionEndYear(userProfile.dateOfBirth, endAge);
 
           projection = calculateScenarioProjection(
             tempScenario,
