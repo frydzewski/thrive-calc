@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { listUserData, saveUserData } from '@/app/lib/data-store';
+import { listUserData, saveUserData, getUserData } from '@/app/lib/data-store';
 import {
   Scenario,
   AssumptionBucket,
@@ -11,9 +11,14 @@ import {
   validateCreateScenario,
   validateBuckets,
 } from '@/app/types/scenarios';
+import { calculateScenarioProjection } from '@/app/types/projections';
+import { UserProfile } from '@/app/types/profile';
+import { Account } from '@/app/types/accounts';
 import { v4 as uuidv4 } from 'uuid';
 
 const DATA_TYPE = 'scenario';
+const PROFILE_DATA_TYPE = 'user-profile';
+const ACCOUNT_DATA_TYPE = 'account';
 
 /**
  * GET /api/scenarios - List all scenarios for authenticated user
@@ -41,6 +46,7 @@ export async function GET() {
       description: record.data.description,
       assumptionBuckets: record.data.assumptionBuckets || [],
       lumpSumEvents: record.data.lumpSumEvents || [],
+      projection: record.data.projection, // Include projection if it exists
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     }));
@@ -138,12 +144,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch user profile and accounts for projection calculation
+    let projection;
+    try {
+      const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
+      const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
+
+      if (profileRecord?.data) {
+        const userProfile: UserProfile = {
+          username,
+          firstname: profileRecord.data.firstname,
+          dateOfBirth: profileRecord.data.dateOfBirth,
+          maritalStatus: profileRecord.data.maritalStatus || 'single',
+          numberOfDependents: profileRecord.data.numberOfDependents || 0,
+          onboardingComplete: profileRecord.data.onboardingComplete,
+        };
+
+        const accounts: Account[] = accountRecords.map((record) => ({
+          id: record.recordId,
+          username,
+          accountType: record.data.accountType,
+          accountName: record.data.accountName,
+          institution: record.data.institution,
+          balance: record.data.balance,
+          asOfDate: record.data.asOfDate,
+          status: record.data.status || 'active',
+          notes: record.data.notes,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+        }));
+
+        // Create temporary scenario for calculation
+        const tempScenario: Scenario = {
+          id: 'temp',
+          username,
+          name: body.name.trim(),
+          isDefault: isFirstScenario,
+          description: body.description?.trim(),
+          assumptionBuckets,
+          lumpSumEvents,
+        };
+
+        // Calculate projection
+        const currentYear = new Date().getFullYear();
+        const endAge = Math.max(...assumptionBuckets.map((b: AssumptionBucket) => b.endAge));
+        const endYear = currentYear + (endAge - Math.floor((new Date().getTime() - new Date(userProfile.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+
+        projection = calculateScenarioProjection(
+          tempScenario,
+          userProfile,
+          accounts,
+          currentYear,
+          endYear
+        );
+      }
+    } catch (projectionError) {
+      // Log but don't fail - we can create scenario without projection
+      console.error('Error calculating projection:', projectionError);
+    }
+
     const scenarioData = {
       name: body.name.trim(),
       isDefault: isFirstScenario, // Auto-set first scenario as default
       description: body.description?.trim() || undefined,
       assumptionBuckets,
       lumpSumEvents,
+      projection, // Include calculated projection
     };
 
     const scenarioId = await saveUserData(username, DATA_TYPE, scenarioData);
