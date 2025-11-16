@@ -9,13 +9,8 @@ export interface LumpSumEvent {
 }
 
 export interface Assumptions {
-  // Retirement
-  retirementAge?: number;
-
   // Income (in TODAY'S dollars - will be inflated)
   annualIncome?: number;
-  socialSecurityAge?: number;
-  socialSecurityIncome?: number;
 
   // Account Contributions (in TODAY'S dollars - per account TYPE)
   contributions?: {
@@ -31,10 +26,6 @@ export interface Assumptions {
   annualSpending?: number;
   annualTravelBudget?: number;
   annualHealthcareCosts?: number;
-
-  // Investment & Inflation (percentages)
-  investmentReturnRate?: number; // Same rate for ALL accounts
-  inflationRate?: number;
 }
 
 export interface AssumptionBucket {
@@ -51,6 +42,14 @@ export interface Scenario {
   name: string;
   isDefault: boolean;
   description?: string;
+
+  // Scenario-level financial assumptions (apply to entire scenario)
+  retirementAge?: number;
+  socialSecurityAge?: number;
+  socialSecurityIncome?: number; // In TODAY'S dollars
+  investmentReturnRate?: number; // Percentage - same rate for ALL accounts
+  inflationRate?: number; // Percentage
+
   assumptionBuckets: AssumptionBucket[];
   lumpSumEvents: LumpSumEvent[];
   /**
@@ -66,6 +65,11 @@ export interface Scenario {
 export interface CreateScenarioRequest {
   name: string;
   description?: string;
+  retirementAge?: number;
+  socialSecurityAge?: number;
+  socialSecurityIncome?: number;
+  investmentReturnRate?: number;
+  inflationRate?: number;
   assumptionBuckets: Omit<AssumptionBucket, 'id'>[];
   lumpSumEvents?: Omit<LumpSumEvent, 'id'>[];
 }
@@ -73,6 +77,11 @@ export interface CreateScenarioRequest {
 export interface UpdateScenarioRequest {
   name?: string;
   description?: string;
+  retirementAge?: number;
+  socialSecurityAge?: number;
+  socialSecurityIncome?: number;
+  investmentReturnRate?: number;
+  inflationRate?: number;
   assumptionBuckets?: AssumptionBucket[];
   lumpSumEvents?: LumpSumEvent[];
   isDefault?: boolean;
@@ -135,7 +144,7 @@ function isValidAccountType(type: string): type is AccountType {
 }
 
 /**
- * Validate assumptions
+ * Validate bucket-level assumptions
  */
 export function validateAssumptions(assumptions: unknown): string | null {
   if (!assumptions || typeof assumptions !== 'object' || assumptions === null) {
@@ -144,27 +153,9 @@ export function validateAssumptions(assumptions: unknown): string | null {
 
   const assumptionsObj = assumptions as Record<string, unknown>;
 
-  if (assumptionsObj.retirementAge !== undefined) {
-    if (typeof assumptionsObj.retirementAge !== 'number' || assumptionsObj.retirementAge < 0 || assumptionsObj.retirementAge > 120) {
-      return 'Retirement age must be a number between 0 and 120';
-    }
-  }
-
   if (assumptionsObj.annualIncome !== undefined) {
     if (typeof assumptionsObj.annualIncome !== 'number' || assumptionsObj.annualIncome < 0) {
       return 'Annual income must be a non-negative number';
-    }
-  }
-
-  if (assumptionsObj.socialSecurityAge !== undefined) {
-    if (typeof assumptionsObj.socialSecurityAge !== 'number' || assumptionsObj.socialSecurityAge < 0 || assumptionsObj.socialSecurityAge > 120) {
-      return 'Social security age must be a number between 0 and 120';
-    }
-  }
-
-  if (assumptionsObj.socialSecurityIncome !== undefined) {
-    if (typeof assumptionsObj.socialSecurityIncome !== 'number' || assumptionsObj.socialSecurityIncome < 0) {
-      return 'Social security income must be a non-negative number';
     }
   }
 
@@ -186,18 +177,6 @@ export function validateAssumptions(assumptions: unknown): string | null {
     }
   }
 
-  if (assumptionsObj.investmentReturnRate !== undefined) {
-    if (typeof assumptionsObj.investmentReturnRate !== 'number' || assumptionsObj.investmentReturnRate < -100 || assumptionsObj.investmentReturnRate > 100) {
-      return 'Investment return rate must be a number between -100 and 100';
-    }
-  }
-
-  if (assumptionsObj.inflationRate !== undefined) {
-    if (typeof assumptionsObj.inflationRate !== 'number' || assumptionsObj.inflationRate < -100 || assumptionsObj.inflationRate > 100) {
-      return 'Inflation rate must be a number between -100 and 100';
-    }
-  }
-
   if (assumptionsObj.contributions) {
     if (typeof assumptionsObj.contributions !== 'object' || assumptionsObj.contributions === null) {
       return 'Contributions must be an object';
@@ -213,6 +192,43 @@ export function validateAssumptions(assumptions: unknown): string | null {
           return `Contribution for ${accountType} must be a non-negative number`;
         }
       }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validate scenario-level financial assumptions
+ */
+export function validateScenarioLevelFields(data: Record<string, unknown>): string | null {
+  if (data.retirementAge !== undefined) {
+    if (typeof data.retirementAge !== 'number' || data.retirementAge < 0 || data.retirementAge > 120) {
+      return 'Retirement age must be a number between 0 and 120';
+    }
+  }
+
+  if (data.socialSecurityAge !== undefined) {
+    if (typeof data.socialSecurityAge !== 'number' || data.socialSecurityAge < 0 || data.socialSecurityAge > 120) {
+      return 'Social security age must be a number between 0 and 120';
+    }
+  }
+
+  if (data.socialSecurityIncome !== undefined) {
+    if (typeof data.socialSecurityIncome !== 'number' || data.socialSecurityIncome < 0) {
+      return 'Social security income must be a non-negative number';
+    }
+  }
+
+  if (data.investmentReturnRate !== undefined) {
+    if (typeof data.investmentReturnRate !== 'number' || data.investmentReturnRate < -100 || data.investmentReturnRate > 100) {
+      return 'Investment return rate must be a number between -100 and 100';
+    }
+  }
+
+  if (data.inflationRate !== undefined) {
+    if (typeof data.inflationRate !== 'number' || data.inflationRate < -100 || data.inflationRate > 100) {
+      return 'Inflation rate must be a number between -100 and 100';
     }
   }
 
@@ -314,6 +330,12 @@ export function validateCreateScenario(data: unknown): string | null {
     return 'Scenario description must be a string';
   }
 
+  // Validate scenario-level financial assumptions
+  const scenarioFieldsError = validateScenarioLevelFields(dataObj);
+  if (scenarioFieldsError) {
+    return scenarioFieldsError;
+  }
+
   if (!dataObj.assumptionBuckets || !Array.isArray(dataObj.assumptionBuckets)) {
     return 'Scenario must have assumption buckets array';
   }
@@ -396,6 +418,12 @@ export function validateUpdateScenario(data: unknown): string | null {
     return 'Scenario description must be a string';
   }
 
+  // Validate scenario-level financial assumptions
+  const scenarioFieldsError = validateScenarioLevelFields(dataObj);
+  if (scenarioFieldsError) {
+    return scenarioFieldsError;
+  }
+
   if (dataObj.assumptionBuckets !== undefined) {
     if (!Array.isArray(dataObj.assumptionBuckets)) {
       return 'Assumption buckets must be an array';
@@ -450,7 +478,7 @@ export function getBucketForAge(buckets: AssumptionBucket[], age: number): Assum
 }
 
 /**
- * Merge assumptions: carry forward from previous bucket if not specified
+ * Merge bucket-level assumptions: carry forward from previous bucket if not specified
  */
 export function mergeAssumptions(current: Assumptions, previous?: Assumptions): Assumptions {
   if (!previous) {
@@ -458,15 +486,10 @@ export function mergeAssumptions(current: Assumptions, previous?: Assumptions): 
   }
 
   return {
-    retirementAge: current.retirementAge ?? previous.retirementAge,
     annualIncome: current.annualIncome ?? previous.annualIncome,
-    socialSecurityAge: current.socialSecurityAge ?? previous.socialSecurityAge,
-    socialSecurityIncome: current.socialSecurityIncome ?? previous.socialSecurityIncome,
     annualSpending: current.annualSpending ?? previous.annualSpending,
     annualTravelBudget: current.annualTravelBudget ?? previous.annualTravelBudget,
     annualHealthcareCosts: current.annualHealthcareCosts ?? previous.annualHealthcareCosts,
-    investmentReturnRate: current.investmentReturnRate ?? previous.investmentReturnRate,
-    inflationRate: current.inflationRate ?? previous.inflationRate,
     contributions: {
       '401k': current.contributions?.['401k'] ?? previous.contributions?.['401k'],
       'traditional-ira': current.contributions?.['traditional-ira'] ?? previous.contributions?.['traditional-ira'],

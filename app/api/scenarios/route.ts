@@ -193,6 +193,11 @@ export async function POST(request: NextRequest) {
           name: body.name.trim(),
           isDefault: isFirstScenario,
           description: body.description?.trim(),
+          retirementAge: body.retirementAge,
+          socialSecurityAge: body.socialSecurityAge,
+          socialSecurityIncome: body.socialSecurityIncome,
+          investmentReturnRate: body.investmentReturnRate,
+          inflationRate: body.inflationRate,
           assumptionBuckets,
           lumpSumEvents,
         };
@@ -219,6 +224,11 @@ export async function POST(request: NextRequest) {
       name: body.name.trim(),
       isDefault: isFirstScenario, // Auto-set first scenario as default
       description: body.description?.trim() || undefined,
+      retirementAge: body.retirementAge,
+      socialSecurityAge: body.socialSecurityAge,
+      socialSecurityIncome: body.socialSecurityIncome,
+      investmentReturnRate: body.investmentReturnRate,
+      inflationRate: body.inflationRate,
       assumptionBuckets,
       lumpSumEvents,
       projection, // Include calculated projection

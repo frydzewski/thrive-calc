@@ -164,16 +164,19 @@ function applyInvestmentReturns(
 /**
  * Calculate scenario projection with year-by-year financial modeling
  *
+ * Scenario-Level vs Bucket-Level Assumptions:
+ * - Scenario-level (apply to entire scenario): retirement age, social security age/income, investment return rate, inflation rate
+ * - Bucket-level (vary by life stage): annual income, spending, contributions
+ *
  * Assumption Buckets:
  * - Scenarios are divided into age-based assumption buckets (e.g., working years, early retirement, late retirement)
- * - Each bucket defines financial assumptions for that life stage (income, spending, inflation rate, etc.)
+ * - Each bucket defines financial assumptions for that life stage (income, spending, contributions)
  * - As the projection moves through years, it switches between buckets based on the user's age
  * - Example: Bucket A (30-55), Bucket B (56-65), Bucket C (66-90)
  *
  * Inflation Handling:
- * - Inflation compounds year-over-year using each year's bucket-specific rate
- * - This ensures smooth transitions between buckets with different inflation rates
- * - Example: 2% for 26 years, then 3% for 10 years, then 2.5% thereafter
+ * - Inflation compounds year-over-year using the scenario-level rate
+ * - The scenario-level inflation rate applies consistently across all buckets
  *
  * @param scenario - The scenario with assumption buckets and lump sum events
  * @param userProfile - User's profile (age calculation)
@@ -230,20 +233,22 @@ export function calculateScenarioProjection(
     const assumptions = bucket.assumptions;
 
     // Apply this year's inflation rate to the cumulative factor
-    // This ensures inflation compounds correctly across bucket transitions
-    const yearInflationRate = assumptions.inflationRate || 0;
+    // Use scenario-level inflation rate (applies to entire scenario)
+    const yearInflationRate = scenario.inflationRate || 0;
     cumulativeInflationFactor *= (1 + yearInflationRate / 100);
     const inflationFactor = cumulativeInflationFactor;
 
     // === INCOME (apply inflation to assumptions) ===
+    // Use scenario-level retirement age (applies to entire scenario)
     const employmentIncome =
-      age < (assumptions.retirementAge || 999)
+      age < (scenario.retirementAge || 999)
         ? (assumptions.annualIncome || 0) * inflationFactor
         : 0;
 
+    // Use scenario-level social security values (apply to entire scenario)
     const socialSecurityIncome =
-      age >= (assumptions.socialSecurityAge || 999)
-        ? (assumptions.socialSecurityIncome || 0) * inflationFactor
+      age >= (scenario.socialSecurityAge || 999)
+        ? (scenario.socialSecurityIncome || 0) * inflationFactor
         : 0;
 
     // Lump sum income (NO inflation - already in actual dollars)
@@ -282,7 +287,8 @@ export function calculateScenarioProjection(
     }
 
     // === INVESTMENT RETURNS (same rate for all accounts) ===
-    const returnRate = assumptions.investmentReturnRate || 0;
+    // Use scenario-level investment return rate (applies to entire scenario)
+    const returnRate = scenario.investmentReturnRate || 0;
     let totalGains = 0;
 
     // Calculate returns on beginning balance (more realistic)

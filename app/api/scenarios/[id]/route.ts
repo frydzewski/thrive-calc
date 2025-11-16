@@ -72,6 +72,11 @@ export async function GET(
       name: scenarioRecord.data.name,
       isDefault: scenarioRecord.data.isDefault || false,
       description: scenarioRecord.data.description,
+      retirementAge: scenarioRecord.data.retirementAge,
+      socialSecurityAge: scenarioRecord.data.socialSecurityAge,
+      socialSecurityIncome: scenarioRecord.data.socialSecurityIncome,
+      investmentReturnRate: scenarioRecord.data.investmentReturnRate,
+      inflationRate: scenarioRecord.data.inflationRate,
       assumptionBuckets: scenarioRecord.data.assumptionBuckets || [],
       lumpSumEvents: scenarioRecord.data.lumpSumEvents || [],
       projection: scenarioRecord.data.projection, // Include projection if it exists
@@ -176,6 +181,27 @@ export async function PUT(
       updates.description = body.description?.trim() || undefined;
     }
 
+    // Handle scenario-level financial assumption updates
+    if (body.retirementAge !== undefined) {
+      updates.retirementAge = body.retirementAge;
+    }
+
+    if (body.socialSecurityAge !== undefined) {
+      updates.socialSecurityAge = body.socialSecurityAge;
+    }
+
+    if (body.socialSecurityIncome !== undefined) {
+      updates.socialSecurityIncome = body.socialSecurityIncome;
+    }
+
+    if (body.investmentReturnRate !== undefined) {
+      updates.investmentReturnRate = body.investmentReturnRate;
+    }
+
+    if (body.inflationRate !== undefined) {
+      updates.inflationRate = body.inflationRate;
+    }
+
     if (body.assumptionBuckets !== undefined) {
       // Ensure all buckets have IDs
       const assumptionBuckets = body.assumptionBuckets.map((bucket: AssumptionBucket) => ({
@@ -234,7 +260,16 @@ export async function PUT(
     // Recalculate projection only if financial assumptions changed
     // Keeps existing projection for name/description updates to avoid unnecessary computation
     let projection = existingRecord.data.projection;
-    if (body.assumptionBuckets !== undefined || body.lumpSumEvents !== undefined) {
+    const shouldRecalculateProjection =
+      body.assumptionBuckets !== undefined ||
+      body.lumpSumEvents !== undefined ||
+      body.retirementAge !== undefined ||
+      body.socialSecurityAge !== undefined ||
+      body.socialSecurityIncome !== undefined ||
+      body.investmentReturnRate !== undefined ||
+      body.inflationRate !== undefined;
+
+    if (shouldRecalculateProjection) {
       try {
         const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
         const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
@@ -272,6 +307,11 @@ export async function PUT(
             name: scenarioData.name,
             isDefault: scenarioData.isDefault || false,
             description: scenarioData.description,
+            retirementAge: scenarioData.retirementAge,
+            socialSecurityAge: scenarioData.socialSecurityAge,
+            socialSecurityIncome: scenarioData.socialSecurityIncome,
+            investmentReturnRate: scenarioData.investmentReturnRate,
+            inflationRate: scenarioData.inflationRate,
             assumptionBuckets: scenarioData.assumptionBuckets || [],
             lumpSumEvents: scenarioData.lumpSumEvents || [],
           };
@@ -308,6 +348,11 @@ export async function PUT(
       name: updatedScenarioData.name,
       isDefault: updatedScenarioData.isDefault || false,
       description: updatedScenarioData.description,
+      retirementAge: updatedScenarioData.retirementAge,
+      socialSecurityAge: updatedScenarioData.socialSecurityAge,
+      socialSecurityIncome: updatedScenarioData.socialSecurityIncome,
+      investmentReturnRate: updatedScenarioData.investmentReturnRate,
+      inflationRate: updatedScenarioData.inflationRate,
       assumptionBuckets: updatedScenarioData.assumptionBuckets || [],
       lumpSumEvents: updatedScenarioData.lumpSumEvents || [],
       projection: updatedScenarioData.projection,

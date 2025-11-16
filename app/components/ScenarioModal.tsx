@@ -28,6 +28,14 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
 
   const [name, setName] = useState(scenario?.name || '');
   const [description, setDescription] = useState(scenario?.description || '');
+
+  // Scenario-level financial assumptions (apply to entire scenario)
+  const [retirementAge, setRetirementAge] = useState<number>(scenario?.retirementAge || 65);
+  const [socialSecurityAge, setSocialSecurityAge] = useState<number>(scenario?.socialSecurityAge || 67);
+  const [socialSecurityIncome, setSocialSecurityIncome] = useState<number>(scenario?.socialSecurityIncome || 0);
+  const [investmentReturnRate, setInvestmentReturnRate] = useState<number>(scenario?.investmentReturnRate || 7);
+  const [inflationRate, setInflationRate] = useState<number>(scenario?.inflationRate || 2.5);
+
   const [buckets, setBuckets] = useState<AssumptionBucketForm[]>([]);
   const [lumpSumEvents, setLumpSumEvents] = useState<LumpSumEventForm[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,11 +65,8 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
           startAge: 30,
           endAge: 100,
           assumptions: {
-            retirementAge: 65,
             annualIncome: 0,
             annualSpending: 0,
-            investmentReturnRate: 7,
-            inflationRate: 2.5,
           },
         },
       ]);
@@ -105,11 +110,8 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
         assumptions: lastBucket
           ? { ...lastBucket.assumptions }
           : {
-              retirementAge: 65,
               annualIncome: 0,
               annualSpending: 0,
-              investmentReturnRate: 7,
-              inflationRate: 2.5,
             },
       },
     ]);
@@ -259,6 +261,11 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
       const body: any = {
         name: name.trim(),
         description: description.trim() || undefined,
+        retirementAge,
+        socialSecurityAge,
+        socialSecurityIncome,
+        investmentReturnRate,
+        inflationRate,
         assumptionBuckets: buckets.map(({ tempId, ...bucket }) => bucket),
         lumpSumEvents: lumpSumEvents.map(({ tempId, ...event }) => event),
       };
@@ -338,6 +345,123 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
             </div>
           </div>
 
+          {/* Scenario-Level Assumptions */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              Scenario-Level Assumptions
+            </h3>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              These assumptions apply uniformly across the entire scenario
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="retirementAge"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                >
+                  Retirement Age
+                </label>
+                <input
+                  type="number"
+                  id="retirementAge"
+                  value={retirementAge}
+                  onChange={(e) => setRetirementAge(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="0"
+                  max="120"
+                  placeholder="65"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="socialSecurityAge"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                >
+                  Social Security Age
+                </label>
+                <input
+                  type="number"
+                  id="socialSecurityAge"
+                  value={socialSecurityAge}
+                  onChange={(e) => setSocialSecurityAge(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="0"
+                  max="120"
+                  placeholder="67"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="socialSecurityIncome"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                >
+                  Annual Social Security Income ($)
+                </label>
+                <input
+                  type="number"
+                  id="socialSecurityIncome"
+                  value={socialSecurityIncome}
+                  onChange={(e) => setSocialSecurityIncome(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="0"
+                  placeholder="0"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="investmentReturnRate"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                >
+                  Investment Return Rate (%)
+                </label>
+                <input
+                  type="number"
+                  id="investmentReturnRate"
+                  value={investmentReturnRate}
+                  onChange={(e) => setInvestmentReturnRate(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="-100"
+                  max="100"
+                  step="0.1"
+                  placeholder="7.0"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="inflationRate"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                >
+                  Inflation Rate (%)
+                </label>
+                <input
+                  type="number"
+                  id="inflationRate"
+                  value={inflationRate}
+                  onChange={(e) => setInflationRate(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="-100"
+                  max="100"
+                  step="0.1"
+                  placeholder="2.5"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Assumption Buckets */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -414,78 +538,22 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                     </div>
                   </div>
 
-                  {/* Income & Retirement */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Annual Income ($)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.annualIncome ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'annualIncome', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        placeholder="0"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Retirement Age
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.retirementAge ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'retirementAge', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        max="120"
-                        placeholder="65"
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Social Security */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Social Security Age
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.socialSecurityAge ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'socialSecurityAge', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        max="120"
-                        placeholder="67"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Social Security Income ($)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.socialSecurityIncome ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'socialSecurityIncome', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        placeholder="0"
-                        disabled={isLoading}
-                      />
-                    </div>
+                  {/* Income */}
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                      Annual Income ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={bucket.assumptions.annualIncome ?? ''}
+                      onChange={(e) =>
+                        updateAssumption(bucket.tempId, 'annualIncome', e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
+                      min="0"
+                      placeholder="0"
+                      disabled={isLoading}
+                    />
                   </div>
 
                   {/* Spending */}
@@ -568,46 +636,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                           />
                         </div>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Rates */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Investment Return Rate (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.investmentReturnRate ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'investmentReturnRate', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="-100"
-                        max="100"
-                        step="0.1"
-                        placeholder="7.0"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Inflation Rate (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.inflationRate ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'inflationRate', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="-100"
-                        max="100"
-                        step="0.1"
-                        placeholder="2.5"
-                        disabled={isLoading}
-                      />
                     </div>
                   </div>
                 </div>
