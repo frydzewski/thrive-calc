@@ -53,6 +53,10 @@ export async function GET() {
       name: record.data.name,
       isDefault: record.data.isDefault || false,
       description: record.data.description,
+      socialSecurityAge: record.data.socialSecurityAge,
+      socialSecurityIncome: record.data.socialSecurityIncome,
+      investmentReturnRate: record.data.investmentReturnRate,
+      inflationRate: record.data.inflationRate,
       assumptionBuckets: record.data.assumptionBuckets || [],
       lumpSumEvents: record.data.lumpSumEvents || [],
       projection: record.data.projection, // Include projection if it exists
@@ -193,6 +197,10 @@ export async function POST(request: NextRequest) {
           name: body.name.trim(),
           isDefault: isFirstScenario,
           description: body.description?.trim(),
+          socialSecurityAge: body.socialSecurityAge,
+          socialSecurityIncome: body.socialSecurityIncome,
+          investmentReturnRate: body.investmentReturnRate,
+          inflationRate: body.inflationRate,
           assumptionBuckets,
           lumpSumEvents,
         };
@@ -219,6 +227,10 @@ export async function POST(request: NextRequest) {
       name: body.name.trim(),
       isDefault: isFirstScenario, // Auto-set first scenario as default
       description: body.description?.trim() || undefined,
+      socialSecurityAge: body.socialSecurityAge,
+      socialSecurityIncome: body.socialSecurityIncome,
+      investmentReturnRate: body.investmentReturnRate,
+      inflationRate: body.inflationRate,
       assumptionBuckets,
       lumpSumEvents,
       projection, // Include calculated projection

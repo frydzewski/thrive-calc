@@ -231,7 +231,8 @@ export function calculateScenarioProjection(
 
     // Apply this year's inflation rate to the cumulative factor
     // This ensures inflation compounds correctly across bucket transitions
-    const yearInflationRate = assumptions.inflationRate || 0;
+    // Inflation rate is now scenario-level and applies uniformly across all years
+    const yearInflationRate = scenario.inflationRate || 0;
     cumulativeInflationFactor *= (1 + yearInflationRate / 100);
     const inflationFactor = cumulativeInflationFactor;
 
@@ -241,9 +242,10 @@ export function calculateScenarioProjection(
         ? (assumptions.annualIncome || 0) * inflationFactor
         : 0;
 
+    // Social Security is scenario-level and applies uniformly across all years
     const socialSecurityIncome =
-      age >= (assumptions.socialSecurityAge || 999)
-        ? (assumptions.socialSecurityIncome || 0) * inflationFactor
+      age >= (scenario.socialSecurityAge || 999)
+        ? (scenario.socialSecurityIncome || 0) * inflationFactor
         : 0;
 
     // Lump sum income (NO inflation - already in actual dollars)
@@ -282,7 +284,8 @@ export function calculateScenarioProjection(
     }
 
     // === INVESTMENT RETURNS (same rate for all accounts) ===
-    const returnRate = assumptions.investmentReturnRate || 0;
+    // Investment return rate is scenario-level and applies uniformly across all years
+    const returnRate = scenario.investmentReturnRate || 0;
     let totalGains = 0;
 
     // Calculate returns on beginning balance (more realistic)

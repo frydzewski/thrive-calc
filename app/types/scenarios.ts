@@ -14,8 +14,6 @@ export interface Assumptions {
 
   // Income (in TODAY'S dollars - will be inflated)
   annualIncome?: number;
-  socialSecurityAge?: number;
-  socialSecurityIncome?: number;
 
   // Account Contributions (in TODAY'S dollars - per account TYPE)
   contributions?: {
@@ -31,10 +29,6 @@ export interface Assumptions {
   annualSpending?: number;
   annualTravelBudget?: number;
   annualHealthcareCosts?: number;
-
-  // Investment & Inflation (percentages)
-  investmentReturnRate?: number; // Same rate for ALL accounts
-  inflationRate?: number;
 }
 
 export interface AssumptionBucket {
@@ -51,6 +45,13 @@ export interface Scenario {
   name: string;
   isDefault: boolean;
   description?: string;
+
+  // Scenario-level assumptions (apply to entire scenario)
+  socialSecurityAge?: number;
+  socialSecurityIncome?: number;
+  investmentReturnRate?: number; // Same rate for ALL accounts
+  inflationRate?: number;
+
   assumptionBuckets: AssumptionBucket[];
   lumpSumEvents: LumpSumEvent[];
   /**
@@ -66,6 +67,10 @@ export interface Scenario {
 export interface CreateScenarioRequest {
   name: string;
   description?: string;
+  socialSecurityAge?: number;
+  socialSecurityIncome?: number;
+  investmentReturnRate?: number;
+  inflationRate?: number;
   assumptionBuckets: Omit<AssumptionBucket, 'id'>[];
   lumpSumEvents?: Omit<LumpSumEvent, 'id'>[];
 }
@@ -73,6 +78,10 @@ export interface CreateScenarioRequest {
 export interface UpdateScenarioRequest {
   name?: string;
   description?: string;
+  socialSecurityAge?: number;
+  socialSecurityIncome?: number;
+  investmentReturnRate?: number;
+  inflationRate?: number;
   assumptionBuckets?: AssumptionBucket[];
   lumpSumEvents?: LumpSumEvent[];
   isDefault?: boolean;
@@ -156,18 +165,6 @@ export function validateAssumptions(assumptions: unknown): string | null {
     }
   }
 
-  if (assumptionsObj.socialSecurityAge !== undefined) {
-    if (typeof assumptionsObj.socialSecurityAge !== 'number' || assumptionsObj.socialSecurityAge < 0 || assumptionsObj.socialSecurityAge > 120) {
-      return 'Social security age must be a number between 0 and 120';
-    }
-  }
-
-  if (assumptionsObj.socialSecurityIncome !== undefined) {
-    if (typeof assumptionsObj.socialSecurityIncome !== 'number' || assumptionsObj.socialSecurityIncome < 0) {
-      return 'Social security income must be a non-negative number';
-    }
-  }
-
   if (assumptionsObj.annualSpending !== undefined) {
     if (typeof assumptionsObj.annualSpending !== 'number' || assumptionsObj.annualSpending < 0) {
       return 'Annual spending must be a non-negative number';
@@ -183,18 +180,6 @@ export function validateAssumptions(assumptions: unknown): string | null {
   if (assumptionsObj.annualHealthcareCosts !== undefined) {
     if (typeof assumptionsObj.annualHealthcareCosts !== 'number' || assumptionsObj.annualHealthcareCosts < 0) {
       return 'Annual healthcare costs must be a non-negative number';
-    }
-  }
-
-  if (assumptionsObj.investmentReturnRate !== undefined) {
-    if (typeof assumptionsObj.investmentReturnRate !== 'number' || assumptionsObj.investmentReturnRate < -100 || assumptionsObj.investmentReturnRate > 100) {
-      return 'Investment return rate must be a number between -100 and 100';
-    }
-  }
-
-  if (assumptionsObj.inflationRate !== undefined) {
-    if (typeof assumptionsObj.inflationRate !== 'number' || assumptionsObj.inflationRate < -100 || assumptionsObj.inflationRate > 100) {
-      return 'Inflation rate must be a number between -100 and 100';
     }
   }
 
@@ -460,13 +445,9 @@ export function mergeAssumptions(current: Assumptions, previous?: Assumptions): 
   return {
     retirementAge: current.retirementAge ?? previous.retirementAge,
     annualIncome: current.annualIncome ?? previous.annualIncome,
-    socialSecurityAge: current.socialSecurityAge ?? previous.socialSecurityAge,
-    socialSecurityIncome: current.socialSecurityIncome ?? previous.socialSecurityIncome,
     annualSpending: current.annualSpending ?? previous.annualSpending,
     annualTravelBudget: current.annualTravelBudget ?? previous.annualTravelBudget,
     annualHealthcareCosts: current.annualHealthcareCosts ?? previous.annualHealthcareCosts,
-    investmentReturnRate: current.investmentReturnRate ?? previous.investmentReturnRate,
-    inflationRate: current.inflationRate ?? previous.inflationRate,
     contributions: {
       '401k': current.contributions?.['401k'] ?? previous.contributions?.['401k'],
       'traditional-ira': current.contributions?.['traditional-ira'] ?? previous.contributions?.['traditional-ira'],

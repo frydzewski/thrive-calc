@@ -28,6 +28,10 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
 
   const [name, setName] = useState(scenario?.name || '');
   const [description, setDescription] = useState(scenario?.description || '');
+  const [socialSecurityAge, setSocialSecurityAge] = useState<number | undefined>(scenario?.socialSecurityAge);
+  const [socialSecurityIncome, setSocialSecurityIncome] = useState<number | undefined>(scenario?.socialSecurityIncome);
+  const [investmentReturnRate, setInvestmentReturnRate] = useState<number | undefined>(scenario?.investmentReturnRate ?? 7);
+  const [inflationRate, setInflationRate] = useState<number | undefined>(scenario?.inflationRate ?? 2.5);
   const [buckets, setBuckets] = useState<AssumptionBucketForm[]>([]);
   const [lumpSumEvents, setLumpSumEvents] = useState<LumpSumEventForm[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,8 +64,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
             retirementAge: 65,
             annualIncome: 0,
             annualSpending: 0,
-            investmentReturnRate: 7,
-            inflationRate: 2.5,
           },
         },
       ]);
@@ -108,8 +110,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
               retirementAge: 65,
               annualIncome: 0,
               annualSpending: 0,
-              investmentReturnRate: 7,
-              inflationRate: 2.5,
             },
       },
     ]);
@@ -259,6 +259,10 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
       const body: any = {
         name: name.trim(),
         description: description.trim() || undefined,
+        socialSecurityAge,
+        socialSecurityIncome,
+        investmentReturnRate,
+        inflationRate,
         assumptionBuckets: buckets.map(({ tempId, ...bucket }) => bucket),
         lumpSumEvents: lumpSumEvents.map(({ tempId, ...event }) => event),
       };
@@ -335,6 +339,83 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                 rows={3}
                 disabled={isLoading}
               />
+            </div>
+          </div>
+
+          {/* Scenario Settings */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              Scenario Settings
+            </h3>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              These settings apply to the entire scenario
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Social Security Age
+                </label>
+                <input
+                  type="number"
+                  value={socialSecurityAge ?? ''}
+                  onChange={(e) => setSocialSecurityAge(e.target.value === '' ? undefined : Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="0"
+                  max="120"
+                  placeholder="67"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Social Security Income ($)
+                </label>
+                <input
+                  type="number"
+                  value={socialSecurityIncome ?? ''}
+                  onChange={(e) => setSocialSecurityIncome(e.target.value === '' ? undefined : Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="0"
+                  placeholder="0"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Investment Return Rate (%)
+                </label>
+                <input
+                  type="number"
+                  value={investmentReturnRate ?? ''}
+                  onChange={(e) => setInvestmentReturnRate(e.target.value === '' ? undefined : Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="-100"
+                  max="100"
+                  step="0.1"
+                  placeholder="7.0"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Inflation Rate (%)
+                </label>
+                <input
+                  type="number"
+                  value={inflationRate ?? ''}
+                  onChange={(e) => setInflationRate(e.target.value === '' ? undefined : Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="-100"
+                  max="100"
+                  step="0.1"
+                  placeholder="2.5"
+                  disabled={isLoading}
+                />
+              </div>
             </div>
           </div>
 
@@ -451,43 +532,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                     </div>
                   </div>
 
-                  {/* Social Security */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Social Security Age
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.socialSecurityAge ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'socialSecurityAge', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        max="120"
-                        placeholder="67"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Social Security Income ($)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.socialSecurityIncome ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'socialSecurityIncome', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        placeholder="0"
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-
                   {/* Spending */}
                   <div className="grid grid-cols-3 gap-4">
                     <div>
@@ -568,46 +612,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                           />
                         </div>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Rates */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Investment Return Rate (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.investmentReturnRate ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'investmentReturnRate', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="-100"
-                        max="100"
-                        step="0.1"
-                        placeholder="7.0"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Inflation Rate (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.inflationRate ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'inflationRate', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="-100"
-                        max="100"
-                        step="0.1"
-                        placeholder="2.5"
-                        disabled={isLoading}
-                      />
                     </div>
                   </div>
                 </div>
