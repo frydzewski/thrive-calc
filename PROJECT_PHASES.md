@@ -1,4 +1,4 @@
-# FinPlan Development Phases
+# ThriveCalc Development Phases
 
 **Last Updated:** 2025-11-14
 **Status:** Phase 1, Session 1.1 - In Progress (Logged in User Experience)
@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document tracks the phased development of FinPlan, a web-based financial and retirement planning tool deployable to AWS. The project is broken into small, focused sessions (1-2 hours each) that each deliver a complete, testable feature.
+This document tracks the phased development of ThriveCalc, a web-based financial and retirement planning tool deployable to AWS. The project is broken into small, focused sessions (1-2 hours each) that each deliver a complete, testable feature.
 
 **Key Priorities:**
 - Data Integration (connect UI to DynamoDB)
@@ -91,7 +91,7 @@ This document tracks the phased development of FinPlan, a web-based financial an
   - [ ] Deploy and test branded login experience
 
 **Files to Modify:**
-- `cdk/lib/finplan-stack.ts` - Add COGNITO_CLIENT_SECRET to ECS task
+- `cdk/lib/thrivecalc-stack.ts` - Add COGNITO_CLIENT_SECRET to ECS task
 - `app/api/auth/[...nextauth]/route.ts` - Improve NextAuth configuration
 - `app/api/profile/route.ts` - New user profile API endpoint
 - `app/components/OnboardingModal.tsx` - New component for firstname collection

@@ -1,10 +1,10 @@
 # AWS Cognito Authentication Guide
 
-This guide explains how authentication works in the FinPlan application using AWS Cognito User Pools.
+This guide explains how authentication works in the ThriveCalc application using AWS Cognito User Pools.
 
 ## Overview
 
-The FinPlan application uses **AWS Cognito User Pools** for user authentication. Cognito provides:
+The ThriveCalc application uses **AWS Cognito User Pools** for user authentication. Cognito provides:
 
 - ✅ Secure user sign-up and sign-in
 - ✅ Email verification
@@ -34,11 +34,11 @@ User can access protected pages
 
 The CDK stack creates a Cognito User Pool with the following settings:
 
-### User Pool Settings (cdk/lib/finplan-stack.ts:78-112)
+### User Pool Settings (cdk/lib/thrivecalc-stack.ts:78-112)
 
 ```typescript
-const userPool = new cognito.UserPool(this, 'FinPlanUserPool', {
-  userPoolName: 'finplan-users',
+const userPool = new cognito.UserPool(this, 'ThriveCalcUserPool', {
+  userPoolName: 'thrivecalc-users',
   selfSignUpEnabled: true,        // Users can create accounts
   signInAliases: {
     email: true,                  // Sign in with email
@@ -64,12 +64,12 @@ const userPool = new cognito.UserPool(this, 'FinPlanUserPool', {
 });
 ```
 
-### User Pool Client Settings (cdk/lib/finplan-stack.ts:114-140)
+### User Pool Client Settings (cdk/lib/thrivecalc-stack.ts:114-140)
 
 ```typescript
-const userPoolClient = new cognito.UserPoolClient(this, 'FinPlanUserPoolClient', {
+const userPoolClient = new cognito.UserPoolClient(this, 'ThriveCalcUserPoolClient', {
   userPool,
-  userPoolClientName: 'finplan-web-client',
+  userPoolClientName: 'thrivecalc-web-client',
   authFlows: {
     userPassword: true,           // Username/password auth
     userSrp: true,                // Secure Remote Password
@@ -92,12 +92,12 @@ const userPoolClient = new cognito.UserPoolClient(this, 'FinPlanUserPoolClient',
 });
 ```
 
-### User Pool Domain (cdk/lib/finplan-stack.ts:142-147)
+### User Pool Domain (cdk/lib/thrivecalc-stack.ts:142-147)
 
 ```typescript
-const userPoolDomain = userPool.addDomain('FinPlanUserPoolDomain', {
+const userPoolDomain = userPool.addDomain('ThriveCalcUserPoolDomain', {
   cognitoDomain: {
-    domainPrefix: `finplan-${this.account}`,  // Unique per AWS account
+    domainPrefix: `thrivecalc-${this.account}`,  // Unique per AWS account
   },
 });
 ```
@@ -157,7 +157,7 @@ COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX
 
 # AWS Configuration
 AWS_REGION=us-east-1
-DYNAMODB_TABLE_NAME=finplan-user-data
+DYNAMODB_TABLE_NAME=thrivecalc-user-data
 ```
 
 ### Getting Cognito Credentials
@@ -172,10 +172,10 @@ You'll see output like this:
 
 ```
 Outputs:
-FinPlanStack.UserPoolId = us-east-1_AbCdEfGhI
-FinPlanStack.UserPoolClientId = 1a2b3c4d5e6f7g8h9i0j
-FinPlanStack.UserPoolDomain = finplan-123456789012
-FinPlanStack.CognitoIssuer = https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
+ThriveCalcStack.UserPoolId = us-east-1_AbCdEfGhI
+ThriveCalcStack.UserPoolClientId = 1a2b3c4d5e6f7g8h9i0j
+ThriveCalcStack.UserPoolDomain = thrivecalc-123456789012
+ThriveCalcStack.CognitoIssuer = https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
 ```
 
 **Note**: The `COGNITO_CLIENT_SECRET` must be retrieved manually:
@@ -441,7 +441,7 @@ Instead of Cognito Hosted UI, you can build a custom sign-in page:
 Enable MFA for additional security:
 
 ```typescript
-const userPool = new cognito.UserPool(this, 'FinPlanUserPool', {
+const userPool = new cognito.UserPool(this, 'ThriveCalcUserPool', {
   // ... other settings
   mfa: cognito.Mfa.OPTIONAL,  // or REQUIRED
   mfaSecondFactor: {
@@ -515,7 +515,7 @@ npm run dev
 You can create test users via AWS Console:
 
 1. Go to AWS Console → Cognito → User Pools
-2. Select "finplan-users" pool
+2. Select "thrivecalc-users" pool
 3. Click "Users" → "Create user"
 4. Enter email and temporary password
 5. User will be prompted to change password on first sign-in

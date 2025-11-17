@@ -1,11 +1,11 @@
 # AWS CDK Setup Complete ✅
 
-Your FinPlan application is now ready for deployment to AWS using CDK!
+Your ThriveCalc application is now ready for deployment to AWS using CDK!
 
 ## What Was Configured
 
 ### Infrastructure as Code
-- **CDK Stack** (`cdk/lib/finplan-stack.ts`) - Defines all AWS resources
+- **CDK Stack** (`cdk/lib/thrivecalc-stack.ts`) - Defines all AWS resources
 - **VPC** - Network infrastructure with public and private subnets
 - **ECS Fargate** - Serverless container orchestration
 - **Application Load Balancer** - Distributes traffic across containers
@@ -67,7 +67,7 @@ http://finpl-FinPl-xxx.us-east-1.elb.amazonaws.com
 npm run cdk:deploy
 
 # View logs
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 
 # Destroy everything
 npm run cdk:destroy
@@ -84,7 +84,7 @@ npm run docker:run
 │   ├── bin/
 │   │   └── app.ts              # CDK app entry point
 │   └── lib/
-│       └── finplan-stack.ts    # Infrastructure definition
+│       └── thrivecalc-stack.ts    # Infrastructure definition
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml          # GitHub Actions CI/CD
@@ -141,7 +141,7 @@ npm run docker:run
 
 ### Environment Variables
 
-Edit `cdk/lib/finplan-stack.ts`:
+Edit `cdk/lib/thrivecalc-stack.ts`:
 
 ```typescript
 environment: {
@@ -200,22 +200,22 @@ minCapacity: 1,       // Minimum tasks
 
 ```bash
 # Real-time logs
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 
 # Last hour
-aws logs tail /ecs/finplan --since 1h
+aws logs tail /ecs/thrivecalc --since 1h
 ```
 
 ### Check Service Health
 
 ```bash
 # List running tasks
-aws ecs list-tasks --cluster finplan-cluster
+aws ecs list-tasks --cluster thrivecalc-cluster
 
 # Service status
 aws ecs describe-services \
-  --cluster finplan-cluster \
-  --services finplan-service
+  --cluster thrivecalc-cluster \
+  --services thrivecalc-service
 ```
 
 ### Scale Manually
@@ -223,8 +223,8 @@ aws ecs describe-services \
 ```bash
 # Scale to 5 tasks
 aws ecs update-service \
-  --cluster finplan-cluster \
-  --service finplan-service \
+  --cluster thrivecalc-cluster \
+  --service thrivecalc-service \
   --desired-count 5
 ```
 
@@ -249,7 +249,7 @@ aws ecs update-service \
 **Solution**:
 ```bash
 # Check logs
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 
 # Test locally
 npm run docker:build

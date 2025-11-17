@@ -66,22 +66,22 @@ npm run docker:run
 
 ```bash
 # Tail logs in real-time
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 
 # Get last 100 log lines
-aws logs tail /ecs/finplan --since 1h
+aws logs tail /ecs/thrivecalc --since 1h
 ```
 
 ### Check Service Status
 
 ```bash
 # List running tasks
-aws ecs list-tasks --cluster finplan-cluster
+aws ecs list-tasks --cluster thrivecalc-cluster
 
 # Describe service
 aws ecs describe-services \
-  --cluster finplan-cluster \
-  --services finplan-service
+  --cluster thrivecalc-cluster \
+  --services thrivecalc-service
 ```
 
 ### View Load Balancer
@@ -89,7 +89,7 @@ aws ecs describe-services \
 ```bash
 # Get load balancer DNS
 aws cloudformation describe-stacks \
-  --stack-name FinPlanStack \
+  --stack-name ThriveCalcStack \
   --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
   --output text
 ```
@@ -99,8 +99,8 @@ aws cloudformation describe-stacks \
 ```bash
 # Scale to 3 tasks
 aws ecs update-service \
-  --cluster finplan-cluster \
-  --service finplan-service \
+  --cluster thrivecalc-cluster \
+  --service thrivecalc-service \
   --desired-count 3
 ```
 
@@ -139,7 +139,7 @@ npm run cdk:deploy
 ### Update Environment Variables
 
 ```bash
-# 1. Edit cdk/lib/finplan-stack.ts
+# 1. Edit cdk/lib/thrivecalc-stack.ts
 # 2. Update the environment section
 # 3. Redeploy
 npm run cdk:deploy
@@ -163,7 +163,7 @@ After deployment, get outputs:
 
 ```bash
 aws cloudformation describe-stacks \
-  --stack-name FinPlanStack \
+  --stack-name ThriveCalcStack \
   --query 'Stacks[0].Outputs'
 ```
 
@@ -186,7 +186,7 @@ npm run cdk:deploy
 
 ```bash
 # Check logs
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 
 # Test Docker image locally
 npm run docker:build
@@ -198,7 +198,7 @@ npm run docker:run
 ```bash
 # Get load balancer DNS
 aws cloudformation describe-stacks \
-  --stack-name FinPlanStack \
+  --stack-name ThriveCalcStack \
   --query 'Stacks[0].Outputs'
 
 # Wait 2-3 minutes for health checks
@@ -211,17 +211,17 @@ aws elbv2 describe-target-health \
 
 Default resource names created by CDK:
 
-- **Stack**: `FinPlanStack`
-- **Cluster**: `finplan-cluster`
-- **Service**: `finplan-service`
-- **Log Group**: `/ecs/finplan`
-- **VPC**: `FinPlanStack/FinPlanVPC`
+- **Stack**: `ThriveCalcStack`
+- **Cluster**: `thrivecalc-cluster`
+- **Service**: `thrivecalc-service`
+- **Log Group**: `/ecs/thrivecalc`
+- **VPC**: `ThriveCalcStack/ThriveCalcVPC`
 
 ## Cost Optimization Tips
 
 ```bash
 # Reduce to 1 task (from 2)
-# Edit cdk/lib/finplan-stack.ts:
+# Edit cdk/lib/thrivecalc-stack.ts:
 desiredCount: 1
 
 # Then redeploy

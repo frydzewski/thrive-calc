@@ -2,7 +2,7 @@
 
 ## What Changed?
 
-The FinPlan application has been updated to use **Amazon DynamoDB** instead of S3/Parquet/Iceberg for user data storage.
+The ThriveCalc application has been updated to use **Amazon DynamoDB** instead of S3/Parquet/Iceberg for user data storage.
 
 ## Why DynamoDB?
 
@@ -19,8 +19,8 @@ For user profile and financial data (< 1 MB per user), **DynamoDB is the better 
 ## What Was Removed
 
 ### Infrastructure (CDK)
-- ❌ S3 bucket (`finplan-data-{account}-{region}`)
-- ❌ AWS Glue database (`finplan_db`)
+- ❌ S3 bucket (`thrivecalc-data-{account}-{region}`)
+- ❌ AWS Glue database (`thrivecalc_db`)
 - ❌ AWS Glue table (`user_financial_data`)
 - ❌ S3 IAM permissions
 - ❌ Glue IAM permissions
@@ -34,7 +34,7 @@ For user profile and financial data (< 1 MB per user), **DynamoDB is the better 
 ## What Was Added
 
 ### Infrastructure (CDK)
-- ✅ DynamoDB table (`finplan-user-data`)
+- ✅ DynamoDB table (`thrivecalc-user-data`)
 - ✅ Global Secondary Index (`DataTypeIndex`)
 - ✅ Point-in-time recovery
 - ✅ Encryption at rest
@@ -77,14 +77,14 @@ listAllUserData(userId)
 
 ### Before (S3/Glue)
 ```env
-DATA_BUCKET_NAME=finplan-data-123456789012-us-east-1
-GLUE_DATABASE_NAME=finplan_db
+DATA_BUCKET_NAME=thrivecalc-data-123456789012-us-east-1
+GLUE_DATABASE_NAME=thrivecalc_db
 GLUE_TABLE_NAME=user_financial_data
 ```
 
 ### After (DynamoDB)
 ```env
-DYNAMODB_TABLE_NAME=finplan-user-data
+DYNAMODB_TABLE_NAME=thrivecalc-user-data
 ```
 
 Update your `.env.local` file if testing locally.
@@ -95,7 +95,7 @@ Update your `.env.local` file if testing locally.
 
 Data was stored as JSON files in S3:
 ```
-s3://finplan-data-{account}-{region}/
+s3://thrivecalc-data-{account}-{region}/
   users/
     {userId}/
       savings-goal/
@@ -176,7 +176,7 @@ async function migrate() {
 
   // List all S3 objects
   const objects = await s3.send(new ListObjectsV2Command({
-    Bucket: 'finplan-data-xxxxx-us-east-1',
+    Bucket: 'thrivecalc-data-xxxxx-us-east-1',
     Prefix: 'users/',
   }));
 
@@ -185,7 +185,7 @@ async function migrate() {
   for (const obj of objects.Contents || []) {
     // Get S3 object
     const data = await s3.send(new GetObjectCommand({
-      Bucket: 'finplan-data-xxxxx-us-east-1',
+      Bucket: 'thrivecalc-data-xxxxx-us-east-1',
       Key: obj.Key,
     }));
 
@@ -210,7 +210,7 @@ async function migrate() {
     if (items.length === 25) {
       await dynamodb.send(new BatchWriteCommand({
         RequestItems: {
-          'finplan-user-data': items,
+          'thrivecalc-user-data': items,
         },
       }));
       items.length = 0;
@@ -221,7 +221,7 @@ async function migrate() {
   if (items.length > 0) {
     await dynamodb.send(new BatchWriteCommand({
       RequestItems: {
-        'finplan-user-data': items,
+        'thrivecalc-user-data': items,
       },
     }));
   }
@@ -248,7 +248,7 @@ After verifying DynamoDB works:
 Update `.env.local`:
 
 ```env
-DYNAMODB_TABLE_NAME=finplan-user-data
+DYNAMODB_TABLE_NAME=thrivecalc-user-data
 AWS_REGION=us-east-1
 ```
 

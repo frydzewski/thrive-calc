@@ -1,6 +1,6 @@
-# Complete AWS CDK Deployment Guide for FinPlan
+# Complete AWS CDK Deployment Guide for ThriveCalc
 
-This comprehensive guide explains everything that was set up with AWS CDK and provides step-by-step instructions for deploying the FinPlan financial planning application to AWS.
+This comprehensive guide explains everything that was set up with AWS CDK and provides step-by-step instructions for deploying the ThriveCalc financial planning application to AWS.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ This comprehensive guide explains everything that was set up with AWS CDK and pr
 
 ### Application Overview
 
-**FinPlan** is a Next.js financial planning web application with the following features:
+**ThriveCalc** is a Next.js financial planning web application with the following features:
 - Dashboard with financial overview
 - Retirement calculator with interactive projections
 - Savings goals tracker
@@ -80,13 +80,13 @@ The AWS CDK configuration deploys a **production-ready, scalable, containerized*
 Here's what was created in your project:
 
 ```
-claude-test/
+thrive-calc/
 │
 ├── cdk/                              # CDK infrastructure code
 │   ├── bin/
 │   │   └── app.ts                    # CDK app entry point
 │   └── lib/
-│       └── finplan-stack.ts          # Main infrastructure stack
+│       └── thrivecalc-stack.ts          # Main infrastructure stack
 │
 ├── app/                              # Next.js application code
 │   ├── api/
@@ -184,8 +184,8 @@ Before deploying, ensure you have:
 
 1. **Clone the repository** (if not already done)
    ```bash
-   git clone https://github.com/yourusername/claude-test.git
-   cd claude-test
+   git clone https://github.com/yourusername/thrive-calc.git
+   cd thrive-calc
    ```
 
 2. **Install dependencies**
@@ -336,15 +336,15 @@ After deployment, CDK will show outputs like:
 
 ```
 Outputs:
-FinPlanStack.LoadBalancerDNS = finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
-FinPlanStack.ServiceURL = http://finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
-FinPlanStack.ClusterName = finplan-cluster
-FinPlanStack.ServiceName = finplan-service
-FinPlanStack.DynamoDBTableName = finplan-user-data
-FinPlanStack.UserPoolId = us-east-1_AbCdEfGhI
-FinPlanStack.UserPoolClientId = 1a2b3c4d5e6f7g8h9i0j
-FinPlanStack.UserPoolDomain = finplan-123456789012
-FinPlanStack.CognitoIssuer = https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
+ThriveCalcStack.LoadBalancerDNS = finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
+ThriveCalcStack.ServiceURL = http://finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
+ThriveCalcStack.ClusterName = thrivecalc-cluster
+ThriveCalcStack.ServiceName = thrivecalc-service
+ThriveCalcStack.DynamoDBTableName = thrivecalc-user-data
+ThriveCalcStack.UserPoolId = us-east-1_AbCdEfGhI
+ThriveCalcStack.UserPoolClientId = 1a2b3c4d5e6f7g8h9i0j
+ThriveCalcStack.UserPoolDomain = thrivecalc-123456789012
+ThriveCalcStack.CognitoIssuer = https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
 ```
 
 **Save these values!** You'll need them for:
@@ -385,7 +385,7 @@ COGNITO_CLIENT_SECRET=your-cognito-client-secret
 COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI
 
 AWS_REGION=us-east-1
-DYNAMODB_TABLE_NAME=finplan-user-data
+DYNAMODB_TABLE_NAME=thrivecalc-user-data
 ```
 
 ### Step 7: Access Your Application
@@ -396,7 +396,7 @@ Open the `ServiceURL` from the CDK output in your browser:
 http://finpl-FinPl-XXXXX.us-east-1.elb.amazonaws.com
 ```
 
-You should see the FinPlan landing page!
+You should see the ThriveCalc landing page!
 
 ---
 
@@ -405,7 +405,7 @@ You should see the FinPlan landing page!
 ### Check ECS Service
 
 ```bash
-aws ecs list-tasks --cluster finplan-cluster --service-name finplan-service
+aws ecs list-tasks --cluster thrivecalc-cluster --service-name thrivecalc-service
 ```
 
 You should see at least 1 running task.
@@ -413,7 +413,7 @@ You should see at least 1 running task.
 ### Check Application Logs
 
 ```bash
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 ```
 
 This shows real-time logs from your application.
@@ -421,7 +421,7 @@ This shows real-time logs from your application.
 ### Check DynamoDB Table
 
 ```bash
-aws dynamodb describe-table --table-name finplan-user-data
+aws dynamodb describe-table --table-name thrivecalc-user-data
 ```
 
 Should show the table status as `ACTIVE`.
@@ -451,15 +451,15 @@ Should show the user pool configuration.
 
 ```bash
 aws ecs list-tasks \
-  --cluster finplan-cluster \
-  --service-name finplan-service
+  --cluster thrivecalc-cluster \
+  --service-name thrivecalc-service
 ```
 
 ### View Task Details
 
 ```bash
 aws ecs describe-tasks \
-  --cluster finplan-cluster \
+  --cluster thrivecalc-cluster \
   --tasks <task-arn-from-above>
 ```
 
@@ -467,8 +467,8 @@ aws ecs describe-tasks \
 
 ```bash
 aws ecs update-service \
-  --cluster finplan-cluster \
-  --service finplan-service \
+  --cluster thrivecalc-cluster \
+  --service thrivecalc-service \
   --force-new-deployment
 ```
 
@@ -478,8 +478,8 @@ This pulls the latest Docker image and restarts tasks.
 
 ```bash
 aws ecs update-service \
-  --cluster finplan-cluster \
-  --service finplan-service \
+  --cluster thrivecalc-cluster \
+  --service thrivecalc-service \
   --desired-count 3
 ```
 
@@ -489,13 +489,13 @@ Changes the number of running tasks to 3.
 
 ```bash
 # Follow logs in real-time
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 
 # View last 1 hour of logs
-aws logs tail /ecs/finplan --since 1h
+aws logs tail /ecs/thrivecalc --since 1h
 
 # Filter logs
-aws logs tail /ecs/finplan --follow --filter-pattern "ERROR"
+aws logs tail /ecs/thrivecalc --follow --filter-pattern "ERROR"
 ```
 
 ### Update Application Code
@@ -551,12 +551,12 @@ CDK will:
 4. **Scale to zero during non-business hours**
    ```bash
    # Stop tasks at night
-   aws ecs update-service --cluster finplan-cluster \
-     --service finplan-service --desired-count 0
+   aws ecs update-service --cluster thrivecalc-cluster \
+     --service thrivecalc-service --desired-count 0
 
    # Start tasks in morning
-   aws ecs update-service --cluster finplan-cluster \
-     --service finplan-service --desired-count 1
+   aws ecs update-service --cluster thrivecalc-cluster \
+     --service thrivecalc-service --desired-count 1
    ```
 
 5. **Use multi-AZ only for production**
@@ -615,13 +615,13 @@ sudo systemctl start docker  # Linux
 **Solution:**
 1. Check logs:
    ```bash
-   aws logs tail /ecs/finplan --since 30m
+   aws logs tail /ecs/thrivecalc --since 30m
    ```
 
 2. Verify environment variables in task definition:
    ```bash
    aws ecs describe-task-definition \
-     --task-definition finplan-service
+     --task-definition thrivecalc-service
    ```
 
 3. Check health check configuration:
@@ -653,7 +653,7 @@ sudo systemctl start docker  # Linux
 - CDK should automatically grant permissions
 - Check task role has DynamoDB read/write access:
   ```bash
-  aws iam list-attached-role-policies --role-name finplan-task-role
+  aws iam list-attached-role-policies --role-name thrivecalc-task-role
   ```
 
 ### Issue: High Costs
@@ -663,7 +663,7 @@ sudo systemctl start docker  # Linux
 **Solution:**
 1. Check running resources:
    ```bash
-   aws ecs list-tasks --cluster finplan-cluster
+   aws ecs list-tasks --cluster thrivecalc-cluster
    aws elbv2 describe-load-balancers
    ```
 
@@ -708,7 +708,7 @@ sudo systemctl start docker  # Linux
 2. **Create SSL certificate in ACM**:
    ```bash
    aws acm request-certificate \
-     --domain-name finplan.example.com \
+     --domain-name thrivecalc.example.com \
      --validation-method DNS
    ```
 
@@ -728,7 +728,7 @@ sudo systemctl start docker  # Linux
    // Add to Fargate service
    const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
      this,
-     'FinPlanService',
+     'ThriveCalcService',
      {
        // ... existing config
        certificate,
@@ -744,7 +744,7 @@ sudo systemctl start docker  # Linux
 
    new route53.ARecord(this, 'AliasRecord', {
      zone: hostedZone,
-     recordName: 'finplan',
+     recordName: 'thrivecalc',
      target: route53.RecordTarget.fromAlias(
        new targets.LoadBalancerTarget(fargateService.loadBalancer)
      ),
@@ -767,7 +767,7 @@ const certificate = acm.Certificate.fromCertificateArn(
 
 const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
   this,
-  'FinPlanService',
+  'ThriveCalcService',
   {
     // ... existing config
     certificate,
@@ -782,7 +782,7 @@ const fargateService = new ecs_patterns.ApplicationLoadBalancedFargateService(
 For high availability, update to 2 or 3 availability zones:
 
 ```typescript
-const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+const vpc = new ec2.Vpc(this, 'ThriveCalcVPC', {
   maxAzs: 2,  // or 3
   natGateways: 0,
   // ... rest of config
@@ -855,7 +855,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 const secret = secretsmanager.Secret.fromSecretNameV2(
   this,
   'NextAuthSecret',
-  'finplan/nextauth-secret'
+  'thrivecalc/nextauth-secret'
 );
 
 // In task definition
@@ -933,7 +933,7 @@ cdk destroy
 
 To delete DynamoDB table and Cognito manually:
 ```bash
-aws dynamodb delete-table --table-name finplan-user-data
+aws dynamodb delete-table --table-name thrivecalc-user-data
 aws cognito-idp delete-user-pool --user-pool-id us-east-1_AbCdEfGhI
 ```
 
@@ -952,7 +952,7 @@ You now have a complete understanding of:
 - ✅ How to configure advanced features
 
 **Key Files:**
-- `cdk/lib/finplan-stack.ts` - Infrastructure definition
+- `cdk/lib/thrivecalc-stack.ts` - Infrastructure definition
 - `Dockerfile` - Container image
 - `app/api/auth/[...nextauth]/route.ts` - Authentication config
 - `app/lib/data-store.ts` - DynamoDB data access
@@ -969,4 +969,4 @@ You now have a complete understanding of:
 4. Set up CI/CD with GitHub Actions
 5. Monitor costs in AWS Cost Explorer
 
-Enjoy your fully deployed FinPlan application! 🚀
+Enjoy your fully deployed ThriveCalc application! 🚀

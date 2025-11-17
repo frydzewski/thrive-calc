@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide explains how to deploy the FinPlan application to AWS using AWS CDK.
+This guide explains how to deploy the ThriveCalc application to AWS using AWS CDK.
 
 ## Prerequisites
 
@@ -89,8 +89,8 @@ After deployment completes, you'll see outputs including:
 
 ```
 Outputs:
-FinPlanStack.LoadBalancerDNS = finpl-FinPl-xxx.us-east-1.elb.amazonaws.com
-FinPlanStack.ServiceURL = http://finpl-FinPl-xxx.us-east-1.elb.amazonaws.com
+ThriveCalcStack.LoadBalancerDNS = finpl-FinPl-xxx.us-east-1.elb.amazonaws.com
+ThriveCalcStack.ServiceURL = http://finpl-FinPl-xxx.us-east-1.elb.amazonaws.com
 ```
 
 Visit the ServiceURL in your browser to access your application.
@@ -100,7 +100,7 @@ Visit the ServiceURL in your browser to access your application.
 ### View Logs
 
 ```bash
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 ```
 
 ### Update the Application
@@ -115,7 +115,7 @@ CDK will detect changes and update only what's necessary.
 
 ### Scale the Application
 
-Edit `cdk/lib/finplan-stack.ts` and modify:
+Edit `cdk/lib/thrivecalc-stack.ts` and modify:
 
 ```typescript
 desiredCount: 2,  // Number of tasks
@@ -176,11 +176,11 @@ View metrics in AWS Console:
 
 Access logs via AWS Console:
 1. Go to CloudWatch
-2. Select Log groups → `/ecs/finplan`
+2. Select Log groups → `/ecs/thrivecalc`
 
 Or use CLI:
 ```bash
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 ```
 
 ## Custom Domain (Optional)
@@ -200,14 +200,14 @@ See [CDK Application Load Balanced Fargate Service docs](https://docs.aws.amazon
 
 Check logs:
 ```bash
-aws logs tail /ecs/finplan --follow
+aws logs tail /ecs/thrivecalc --follow
 ```
 
 ### Cannot connect to load balancer
 
 - Wait 2-3 minutes for health checks to pass
 - Check security groups allow inbound traffic on port 80
-- Verify tasks are running: `aws ecs list-tasks --cluster finplan-cluster`
+- Verify tasks are running: `aws ecs list-tasks --cluster thrivecalc-cluster`
 
 ### CDK deploy fails
 
@@ -217,7 +217,7 @@ aws logs tail /ecs/finplan --follow
 
 ## Environment Variables
 
-To add environment variables, edit `cdk/lib/finplan-stack.ts`:
+To add environment variables, edit `cdk/lib/thrivecalc-stack.ts`:
 
 ```typescript
 environment: {

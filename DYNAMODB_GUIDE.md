@@ -1,10 +1,10 @@
 # DynamoDB Data Storage Guide
 
-This guide explains how user data is stored in DynamoDB for the FinPlan application.
+This guide explains how user data is stored in DynamoDB for the ThriveCalc application.
 
 ## Overview
 
-The FinPlan application uses **Amazon DynamoDB** to store all user profile and financial data. DynamoDB is a fully managed NoSQL database that provides:
+The ThriveCalc application uses **Amazon DynamoDB** to store all user profile and financial data. DynamoDB is a fully managed NoSQL database that provides:
 
 - ✅ Fast and predictable performance
 - ✅ Seamless scalability
@@ -15,7 +15,7 @@ The FinPlan application uses **Amazon DynamoDB** to store all user profile and f
 ## Table Structure
 
 ### Table Name
-`finplan-user-data`
+`thrivecalc-user-data`
 
 ### Primary Key
 
@@ -399,7 +399,7 @@ docker run -p 8000:8000 amazon/dynamodb-local
 
 2. Update environment:
 ```env
-DYNAMODB_TABLE_NAME=finplan-user-data
+DYNAMODB_TABLE_NAME=thrivecalc-user-data
 AWS_REGION=us-east-1
 AWS_ENDPOINT=http://localhost:8000
 ```
@@ -407,7 +407,7 @@ AWS_ENDPOINT=http://localhost:8000
 3. Create table:
 ```bash
 aws dynamodb create-table \
-  --table-name finplan-user-data \
+  --table-name thrivecalc-user-data \
   --attribute-definitions \
     AttributeName=userId,AttributeType=S \
     AttributeName=recordKey,AttributeType=S \
@@ -419,7 +419,7 @@ aws dynamodb create-table \
   --endpoint-url http://localhost:8000
 
 aws dynamodb update-table \
-  --table-name finplan-user-data \
+  --table-name thrivecalc-user-data \
   --attribute-definitions \
     AttributeName=userId,AttributeType=S \
     AttributeName=dataType,AttributeType=S \
@@ -461,8 +461,8 @@ ECS tasks have these permissions:
     "dynamodb:Query"
   ],
   "Resource": [
-    "arn:aws:dynamodb:region:account:table/finplan-user-data",
-    "arn:aws:dynamodb:region:account:table/finplan-user-data/index/*"
+    "arn:aws:dynamodb:region:account:table/thrivecalc-user-data",
+    "arn:aws:dynamodb:region:account:table/thrivecalc-user-data/index/*"
   ]
 }
 ```
@@ -495,7 +495,7 @@ if (!goal) {
 **Solution**:
 - Check `DYNAMODB_TABLE_NAME` environment variable
 - Check `AWS_REGION` matches deployment region
-- Verify table exists: `aws dynamodb describe-table --table-name finplan-user-data`
+- Verify table exists: `aws dynamodb describe-table --table-name thrivecalc-user-data`
 
 ### Error: "AccessDeniedException"
 

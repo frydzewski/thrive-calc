@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import { FinPlanStack } from '../lib/finplan-stack';
+import { ThriveCalcStack } from '../lib/thrivecalc-stack';
 
 const app = new cdk.App();
 
-new FinPlanStack(app, 'FinPlanStack', {
+new ThriveCalcStack(app, 'ThriveCalcStack', {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
   },
-  description: 'FinPlan - Financial Planning & Retirement Application',
+  description: 'ThriveCalc - Financial Planning & Retirement Application',
 });
 
 app.synth();

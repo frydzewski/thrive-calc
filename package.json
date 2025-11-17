@@ -1,5 +1,5 @@
 {
-  "name": "claude-test",
+  "name": "thrive-calc",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,8 +13,8 @@
     "cdk:diff": "cdk diff",
     "cdk:synth": "cdk synth",
     "cdk:bootstrap": "cdk bootstrap",
-    "docker:build": "docker build -t finplan .",
-    "docker:run": "docker run -p 3000:3000 finplan"
+    "docker:build": "docker build -t thrivecalc .",
+    "docker:run": "docker run -p 3000:3000 thrivecalc"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.927.0",

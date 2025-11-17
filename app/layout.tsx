@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FinPlan - Financial Planning & Retirement",
+  title: "ThriveCalc - Financial Planning & Retirement",
   description: "Plan your financial future with confidence. Retirement planning, savings goals, and investment tracking.",
 };
 

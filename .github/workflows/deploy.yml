@@ -48,7 +48,7 @@ jobs:
         id: outputs
         run: |
           SERVICE_URL=$(aws cloudformation describe-stacks \
-            --stack-name FinPlanStack \
+            --stack-name ThriveCalcStack \
             --query 'Stacks[0].Outputs[?OutputKey==`ServiceURL`].OutputValue' \
             --output text)
           echo "service-url=$SERVICE_URL" >> $GITHUB_OUTPUT

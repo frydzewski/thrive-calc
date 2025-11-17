@@ -1,4 +1,4 @@
-# FinPlan - Financial Planning & Retirement App
+# ThriveCalc - Financial Planning & Retirement App
 
 A comprehensive financial planning and retirement web application built with Next.js, TypeScript, and Tailwind CSS. Plan your financial future with tools for retirement planning, savings goals tracking, portfolio management, and financial reporting.
 

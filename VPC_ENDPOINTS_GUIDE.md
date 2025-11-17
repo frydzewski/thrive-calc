@@ -1,6 +1,6 @@
 # VPC Endpoints Migration Guide
 
-This guide explains how the FinPlan infrastructure was updated to use VPC Endpoints instead of a NAT Gateway, resulting in significant cost savings.
+This guide explains how the ThriveCalc infrastructure was updated to use VPC Endpoints instead of a NAT Gateway, resulting in significant cost savings.
 
 ## What Changed?
 
@@ -77,11 +77,11 @@ Interface endpoints cost $0.01/hour per AZ + data transfer charges.
 
 ## VPC Configuration
 
-### CDK Stack Changes (cdk/lib/finplan-stack.ts)
+### CDK Stack Changes (cdk/lib/thrivecalc-stack.ts)
 
 **Before:**
 ```typescript
-const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+const vpc = new ec2.Vpc(this, 'ThriveCalcVPC', {
   maxAzs: 2,
   natGateways: 1,  // $32.40/month
   subnetConfiguration: [
@@ -93,7 +93,7 @@ const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
 
 **After:**
 ```typescript
-const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+const vpc = new ec2.Vpc(this, 'ThriveCalcVPC', {
   maxAzs: 2,
   natGateways: 0,  // No NAT Gateway!
   subnetConfiguration: [
@@ -174,7 +174,7 @@ Actually, no. Here's why:
 For development/staging environments, you can use a single AZ:
 
 ```typescript
-const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+const vpc = new ec2.Vpc(this, 'ThriveCalcVPC', {
   maxAzs: 1,  // Single AZ for development
   natGateways: 0,
   // ...
@@ -335,7 +335,7 @@ If you're migrating from NAT Gateway to VPC Endpoints:
 ### Step 1: Deploy VPC Endpoints Alongside NAT Gateway
 
 ```typescript
-const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+const vpc = new ec2.Vpc(this, 'ThriveCalcVPC', {
   maxAzs: 2,
   natGateways: 1,  // Keep for now
   // Add VPC endpoints
@@ -359,7 +359,7 @@ Check ECS tasks can:
 ### Step 3: Remove NAT Gateway
 
 ```typescript
-const vpc = new ec2.Vpc(this, 'FinPlanVPC', {
+const vpc = new ec2.Vpc(this, 'ThriveCalcVPC', {
   maxAzs: 2,
   natGateways: 0,  // Remove NAT Gateway
   subnetConfiguration: [
@@ -391,9 +391,9 @@ curl https://google.com  # Should fail
 
 ## Summary
 
-### For FinPlan Application
+### For ThriveCalc Application
 
-The FinPlan application now uses:
+The ThriveCalc application now uses:
 - ✅ **No NAT Gateway** - Saves $32.40/month
 - ✅ **VPC Endpoints** - DynamoDB, S3, ECR, CloudWatch Logs
 - ✅ **Isolated Subnets** - Better security
@@ -405,7 +405,7 @@ The FinPlan application now uses:
 
 ### Recommendation
 
-For FinPlan:
+For ThriveCalc:
 - **Development/Staging**: Use VPC endpoints (1 AZ) for cost savings
 - **Production**: Consider keeping VPC endpoints for security, or use NAT Gateway if cost is critical
 
