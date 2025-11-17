@@ -45,3 +45,13 @@ cdk.out
 cdk.context.json
 .cdk.staging
 cdk-updated.out/
+
+# swissarmyhammer
+.swissarmyhammer/search.db
+.swissarmyhammer/mcp.log
+.swissarmyhammer/tmp/
+.swissarmyhammer/todo/
+.swissarmyhammer/workflow-runs/
+
+# scratch files
+*SCRATCHPAD.md
