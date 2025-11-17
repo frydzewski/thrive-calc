@@ -136,11 +136,12 @@ export class FinPlanStack extends cdk.Stack {
     });
 
     // Import existing Cognito client secret from Secrets Manager
-    // Using fromSecretPartialArn to avoid hardcoding the random suffix
-    const cognitoClientSecret = secretsmanager.Secret.fromSecretPartialArn(
+    // Using complete ARN is required for ECS task secret injection
+    // The random suffix (-pHAIi7) is assigned by Secrets Manager and is stable
+    const cognitoClientSecret = secretsmanager.Secret.fromSecretCompleteArn(
       this,
       'CognitoClientSecret',
-      `arn:aws:secretsmanager:${this.region}:${this.account}:secret:finplan-cognito-client-secret`
+      'arn:aws:secretsmanager:us-east-1:398106244340:secret:finplan-cognito-client-secret-pHAIi7'
     );
 
     // Create Cognito User Pool
