@@ -44,3 +44,4 @@ next-env.d.ts
 cdk.out
 cdk.context.json
 .cdk.staging
+cdk-updated.out/
