@@ -47,35 +47,9 @@ export class FinPlanStack extends cdk.Stack {
       service: ec2.GatewayVpcEndpointAwsService.S3,
     });
 
-    // ECR API Interface Endpoint - for pulling images
-    vpc.addInterfaceEndpoint('EcrApiEndpoint', {
-      service: ec2.InterfaceVpcEndpointAwsService.ECR,
-      privateDnsEnabled: true,
-    });
-
-    // ECR Docker Interface Endpoint - for pulling image layers
-    vpc.addInterfaceEndpoint('EcrDkrEndpoint', {
-      service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
-      privateDnsEnabled: true,
-    });
-
-    // CloudWatch Logs Interface Endpoint - for logging
-    vpc.addInterfaceEndpoint('CloudWatchLogsEndpoint', {
-      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
-      privateDnsEnabled: true,
-    });
-
-    // Secrets Manager Interface Endpoint - for accessing secrets
-    vpc.addInterfaceEndpoint('SecretsManagerEndpoint', {
-      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
-      privateDnsEnabled: true,
-    });
-
-    // Cognito Identity Provider Interface Endpoint - for authentication
-    vpc.addInterfaceEndpoint('CognitoIdpEndpoint', {
-      service: new ec2.InterfaceVpcEndpointService(`com.amazonaws.${this.region}.cognito-idp`),
-      privateDnsEnabled: true,
-    });
+    // VPC Interface Endpoints removed - not needed since tasks run in public subnets
+    // with public IPs and can access AWS services via internet gateway
+    // This saves ~$2.40/day (~$70/month)
 
     // Create ECS Cluster
     const cluster = new ecs.Cluster(this, 'FinPlanCluster', {
@@ -274,6 +248,17 @@ export class FinPlanStack extends cdk.Stack {
         },
       }
     );
+
+    // Enable Fargate Spot for cost savings (~50% cheaper than regular Fargate)
+    // Tasks may be interrupted with 2-minute warning, but suitable for stateless web apps
+    const cfnService = fargateService.service.node.defaultChild as ecs.CfnService;
+    cfnService.capacityProviderStrategy = [
+      {
+        capacityProvider: 'FARGATE_SPOT',
+        weight: 1,
+        base: 0,
+      },
+    ];
 
     // Add www subdomain pointing to ALB
     new route53.ARecord(this, 'WwwARecord', {
