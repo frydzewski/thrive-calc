@@ -24,23 +24,35 @@ export default function Navigation() {
 
   // Fetch profile when user is authenticated
   useEffect(() => {
-    if (session?.user?.email && !profile && !isLoadingProfile) {
-      setIsLoadingProfile(true);
-      fetch('/api/profile')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.profile) {
-            setProfile(data.profile);
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to fetch profile:', error);
-        })
-        .finally(() => {
-          setIsLoadingProfile(false);
-        });
+    if (!session?.user?.email || profile || isLoadingProfile) {
+      return;
     }
-  }, [session, profile, isLoadingProfile]);
+
+    let isMounted = true;
+
+    const fetchProfile = async () => {
+      setIsLoadingProfile(true);
+      try {
+        const res = await fetch('/api/profile');
+        const data = await res.json();
+        if (isMounted && data.success && data.profile) {
+          setProfile(data.profile);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user?.email]);
 
   return (
     <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
