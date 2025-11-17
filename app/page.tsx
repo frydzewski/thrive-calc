@@ -5,12 +5,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { UserProfile } from './types/profile';
 import { Account, calculateAccountSummary, getAccountCategory } from './types/accounts';
+import { Scenario } from './types/scenarios';
 import OnboardingModal from './components/OnboardingModal';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [defaultScenario, setDefaultScenario] = useState<Scenario | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
@@ -24,14 +26,16 @@ export default function Dashboard() {
     try {
       setLoading(true);
 
-      // Fetch profile and accounts in parallel
-      const [profileRes, accountsRes] = await Promise.all([
+      // Fetch profile, accounts, and scenarios in parallel
+      const [profileRes, accountsRes, scenariosRes] = await Promise.all([
         fetch('/api/profile'),
         fetch('/api/accounts'),
+        fetch('/api/scenarios'),
       ]);
 
       const profileData = await profileRes.json();
       const accountsData = await accountsRes.json();
+      const scenariosData = await scenariosRes.json();
 
       if (profileData.success && profileData.profile) {
         setProfile(profileData.profile);
@@ -39,6 +43,14 @@ export default function Dashboard() {
 
       if (accountsData.success && accountsData.accounts) {
         setAccounts(accountsData.accounts);
+      }
+
+      if (scenariosData.success && scenariosData.scenarios) {
+        // Find the default scenario
+        const defaultScen = scenariosData.scenarios.find((s: Scenario) => s.isDefault);
+        if (defaultScen) {
+          setDefaultScenario(defaultScen);
+        }
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -502,6 +514,115 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Retirement Projection Section */}
+      {defaultScenario?.projection && (() => {
+        const lastYear = defaultScenario.projection.years[defaultScenario.projection.years.length - 1];
+        const peakYear = defaultScenario.projection.years.reduce((max, year) =>
+          year.accountBalances.total > max.accountBalances.total ? year : max
+        );
+        const finalNetWorth = defaultScenario.projection.summary.finalNetWorth;
+        const firstDeficitYear = defaultScenario.projection.years.find(y => y.netIncome < 0);
+
+        return (
+          <div className="mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">
+                    Retirement Projection
+                  </h2>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                    Based on scenario: {defaultScenario.name}
+                  </p>
+                </div>
+                <Link
+                  href="/scenarios"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  View Details
+                </Link>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-white/80 dark:bg-zinc-900/80 p-4 rounded-lg">
+                  <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+                    Final Balance (Age {lastYear.age})
+                  </div>
+                  <div className="text-2xl font-bold text-zinc-900 dark:text-white">
+                    ${Math.round(finalNetWorth).toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="bg-white/80 dark:bg-zinc-900/80 p-4 rounded-lg">
+                  <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+                    Peak Balance
+                  </div>
+                  <div className="text-2xl font-bold text-zinc-900 dark:text-white">
+                    ${Math.round(peakYear.accountBalances.total).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
+                    At age {peakYear.age}
+                  </div>
+                </div>
+
+                <div className="bg-white/80 dark:bg-zinc-900/80 p-4 rounded-lg">
+                  <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+                    Status
+                  </div>
+                  <div className={`text-2xl font-bold ${finalNetWorth > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {finalNetWorth > 0 ? 'On Track' : 'At Risk'}
+                  </div>
+                  {firstDeficitYear && finalNetWorth <= 0 && (
+                    <div className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
+                      First deficit at age {firstDeficitYear.age}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {defaultScenario.description && (
+                <div className="text-sm text-zinc-600 dark:text-zinc-400 bg-white/60 dark:bg-zinc-900/60 p-3 rounded">
+                  <span className="font-medium">Scenario Notes:</span> {defaultScenario.description}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Prompt to create scenario if none exists */}
+      {!defaultScenario && (
+        <div className="mb-8">
+          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 p-6">
+            <div className="flex items-start gap-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-yellow-600 flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                  Create Your Retirement Scenario
+                </h3>
+                <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                  Start planning your financial future by creating a retirement scenario. Define your income,
+                  expenses, and savings goals to see personalized projections.
+                </p>
+                <Link
+                  href="/scenarios"
+                  className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
+                >
+                  Create Scenario
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg border border-zinc-200 dark:border-zinc-800">

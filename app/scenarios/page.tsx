@@ -203,7 +203,7 @@ export default function Scenarios() {
                     )}
                   </div>
                   {scenario.description && (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
                       {scenario.description}
                     </p>
                   )}
@@ -211,30 +211,71 @@ export default function Scenarios() {
                     <span>{scenario.assumptionBuckets.length} assumption bucket(s)</span>
                     <span>{scenario.lumpSumEvents.length} lump sum event(s)</span>
                   </div>
+
+                  {/* Projection Summary */}
+                  {scenario.projection && (() => {
+                    const lastYear = scenario.projection.years[scenario.projection.years.length - 1];
+                    const finalNetWorth = scenario.projection.summary.finalNetWorth;
+                    return (
+                      <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <div className="text-zinc-500 dark:text-zinc-400 mb-1">Final Balance</div>
+                            <div className="font-semibold text-zinc-900 dark:text-white">
+                              ${Math.round(finalNetWorth).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-zinc-400">at age {lastYear.age}</div>
+                          </div>
+                          <div>
+                            <div className="text-zinc-500 dark:text-zinc-400 mb-1">Status</div>
+                            <div className={`font-semibold ${finalNetWorth > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {finalNetWorth > 0 ? 'On Track' : 'At Risk'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-zinc-500 dark:text-zinc-400 mb-1">Years Projected</div>
+                            <div className="font-semibold text-zinc-900 dark:text-white">
+                              {scenario.projection.years.length}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
-                <div className="flex items-center gap-2 ml-4">
-                  {!scenario.isDefault && (
+                <div className="flex flex-col items-end gap-2 ml-4">
+                  {scenario.projection && (
                     <button
-                      onClick={() => handleSetDefault(scenario.id)}
-                      disabled={settingDefault === scenario.id}
-                      className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors disabled:opacity-50"
+                      onClick={() => router.push(`/scenarios/${scenario.id}`)}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
                     >
-                      {settingDefault === scenario.id ? 'Setting...' : 'Set as Default'}
+                      View Details
                     </button>
                   )}
-                  <button
-                    onClick={() => handleEditScenario(scenario)}
-                    className="px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteScenario(scenario.id, scenario.name)}
-                    className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {!scenario.isDefault && (
+                      <button
+                        onClick={() => handleSetDefault(scenario.id)}
+                        disabled={settingDefault === scenario.id}
+                        className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        {settingDefault === scenario.id ? 'Setting...' : 'Set as Default'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleEditScenario(scenario)}
+                      className="px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteScenario(scenario.id, scenario.name)}
+                      className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

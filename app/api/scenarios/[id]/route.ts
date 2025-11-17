@@ -11,9 +11,23 @@ import {
   validateUpdateScenario,
   validateBuckets,
 } from '@/app/types/scenarios';
+import { calculateScenarioProjection, calculateAge } from '@/app/types/projections';
+import { UserProfile } from '@/app/types/profile';
+import { Account } from '@/app/types/accounts';
 import { v4 as uuidv4 } from 'uuid';
 
 const DATA_TYPE = 'scenario';
+const PROFILE_DATA_TYPE = 'user-profile';
+const ACCOUNT_DATA_TYPE = 'account';
+
+/**
+ * Helper to calculate projection end year based on user's age and scenario assumptions
+ */
+function calculateProjectionEndYear(dateOfBirth: string, endAge: number): number {
+  const currentAge = calculateAge(dateOfBirth);
+  const currentYear = new Date().getFullYear();
+  return currentYear + (endAge - currentAge);
+}
 
 /**
  * GET /api/scenarios/[id] - Get a specific scenario
@@ -60,6 +74,7 @@ export async function GET(
       description: scenarioRecord.data.description,
       assumptionBuckets: scenarioRecord.data.assumptionBuckets || [],
       lumpSumEvents: scenarioRecord.data.lumpSumEvents || [],
+      projection: scenarioRecord.data.projection, // Include projection if it exists
       createdAt: scenarioRecord.createdAt,
       updatedAt: scenarioRecord.updatedAt,
     };
@@ -216,16 +231,86 @@ export async function PUT(
       ...updates,
     };
 
-    await saveUserData(username, DATA_TYPE, scenarioData, id);
+    // Recalculate projection only if financial assumptions changed
+    // Keeps existing projection for name/description updates to avoid unnecessary computation
+    let projection = existingRecord.data.projection;
+    if (body.assumptionBuckets !== undefined || body.lumpSumEvents !== undefined) {
+      try {
+        const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
+        const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
+
+        if (profileRecord?.data) {
+          // Build user profile from stored data
+          const userProfile: UserProfile = {
+            username,
+            firstname: profileRecord.data.firstname,
+            dateOfBirth: profileRecord.data.dateOfBirth,
+            maritalStatus: profileRecord.data.maritalStatus || 'single',
+            numberOfDependents: profileRecord.data.numberOfDependents || 0,
+            onboardingComplete: profileRecord.data.onboardingComplete,
+          };
+
+          // Aggregate user's accounts by type
+          const accounts: Account[] = accountRecords.map((record) => ({
+            id: record.recordId,
+            username,
+            accountType: record.data.accountType,
+            accountName: record.data.accountName,
+            institution: record.data.institution,
+            balance: record.data.balance,
+            asOfDate: record.data.asOfDate,
+            status: record.data.status || 'active',
+            notes: record.data.notes,
+            createdAt: record.createdAt,
+            updatedAt: record.updatedAt,
+          }));
+
+          // Create temporary scenario with updated assumptions
+          const tempScenario: Scenario = {
+            id,
+            username,
+            name: scenarioData.name,
+            isDefault: scenarioData.isDefault || false,
+            description: scenarioData.description,
+            assumptionBuckets: scenarioData.assumptionBuckets || [],
+            lumpSumEvents: scenarioData.lumpSumEvents || [],
+          };
+
+          // Calculate projection from current year to the end age specified in assumptions
+          const currentYear = new Date().getFullYear();
+          const endAge = Math.max(...tempScenario.assumptionBuckets.map((b) => b.endAge));
+          const endYear = calculateProjectionEndYear(userProfile.dateOfBirth, endAge);
+
+          projection = calculateScenarioProjection(
+            tempScenario,
+            userProfile,
+            accounts,
+            currentYear,
+            endYear
+          );
+        }
+      } catch (projectionError) {
+        // Log but don't fail - we can update scenario without projection
+        console.error('Error calculating projection:', projectionError);
+      }
+    }
+
+    const updatedScenarioData = {
+      ...scenarioData,
+      projection, // Include recalculated or existing projection
+    };
+
+    await saveUserData(username, DATA_TYPE, updatedScenarioData, id);
 
     const scenario: Scenario = {
       id,
       username,
-      name: scenarioData.name,
-      isDefault: scenarioData.isDefault || false,
-      description: scenarioData.description,
-      assumptionBuckets: scenarioData.assumptionBuckets || [],
-      lumpSumEvents: scenarioData.lumpSumEvents || [],
+      name: updatedScenarioData.name,
+      isDefault: updatedScenarioData.isDefault || false,
+      description: updatedScenarioData.description,
+      assumptionBuckets: updatedScenarioData.assumptionBuckets || [],
+      lumpSumEvents: updatedScenarioData.lumpSumEvents || [],
+      projection: updatedScenarioData.projection,
     };
 
     return NextResponse.json<ScenarioResponse>(
