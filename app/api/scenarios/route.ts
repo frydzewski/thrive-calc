@@ -11,6 +11,7 @@ import {
   validateCreateScenario,
   validateBuckets,
 } from '@/app/types/scenarios';
+import { Mortgage } from '@/app/types/mortgages';
 import { calculateScenarioProjection, calculateAge } from '@/app/types/projections';
 import { UserProfile } from '@/app/types/profile';
 import { Account } from '@/app/types/accounts';
@@ -60,6 +61,7 @@ export async function GET() {
       inflationRate: record.data.inflationRate,
       assumptionBuckets: record.data.assumptionBuckets || [],
       lumpSumEvents: record.data.lumpSumEvents || [],
+      mortgages: record.data.mortgages || [],
       projection: record.data.projection, // Include projection if it exists
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
@@ -142,6 +144,12 @@ export async function POST(request: NextRequest) {
       id: uuidv4(),
     }));
 
+    // Generate IDs for mortgages
+    const mortgages = (body.mortgages || []).map((mortgage: Omit<Mortgage, 'id'>) => ({
+      ...mortgage,
+      id: uuidv4(),
+    }));
+
     // Check if this is the first scenario for this user
     const existingScenarios = await listUserData(username, DATA_TYPE);
     const isFirstScenario = existingScenarios.length === 0;
@@ -205,6 +213,7 @@ export async function POST(request: NextRequest) {
           inflationRate: body.inflationRate,
           assumptionBuckets,
           lumpSumEvents,
+          mortgages,
         };
 
         // Calculate projection from current year to the end age specified in assumptions
@@ -236,6 +245,7 @@ export async function POST(request: NextRequest) {
       inflationRate: body.inflationRate,
       assumptionBuckets,
       lumpSumEvents,
+      mortgages,
       projection, // Include calculated projection
     };
 

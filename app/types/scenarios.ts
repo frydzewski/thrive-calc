@@ -1,4 +1,5 @@
 import { AccountType } from './accounts';
+import { Mortgage } from './mortgages';
 
 export interface LumpSumEvent {
   id: string;
@@ -52,6 +53,7 @@ export interface Scenario {
 
   assumptionBuckets: AssumptionBucket[];
   lumpSumEvents: LumpSumEvent[];
+  mortgages: Mortgage[];
   /**
    * Calculated financial projection for this scenario
    * Automatically computed when scenario is created or assumptions are updated
@@ -72,6 +74,7 @@ export interface CreateScenarioRequest {
   inflationRate?: number;
   assumptionBuckets: Omit<AssumptionBucket, 'id'>[];
   lumpSumEvents?: Omit<LumpSumEvent, 'id'>[];
+  mortgages?: Omit<Mortgage, 'id'>[];
 }
 
 export interface UpdateScenarioRequest {
@@ -84,6 +87,7 @@ export interface UpdateScenarioRequest {
   inflationRate?: number;
   assumptionBuckets?: AssumptionBucket[];
   lumpSumEvents?: LumpSumEvent[];
+  mortgages?: Mortgage[];
   isDefault?: boolean;
 }
 
@@ -349,6 +353,19 @@ export function validateCreateScenario(data: unknown): string | null {
     }
   }
 
+  if (dataObj.mortgages) {
+    if (!Array.isArray(dataObj.mortgages)) {
+      return 'Mortgages must be an array';
+    }
+
+    for (const mortgage of dataObj.mortgages) {
+      const mortgageError = require('./mortgages').validateMortgage(mortgage);
+      if (mortgageError) {
+        return mortgageError;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -402,6 +419,19 @@ export function validateUpdateScenario(data: unknown): string | null {
       const eventError = validateLumpSumEvent(event);
       if (eventError) {
         return eventError;
+      }
+    }
+  }
+
+  if (dataObj.mortgages !== undefined) {
+    if (!Array.isArray(dataObj.mortgages)) {
+      return 'Mortgages must be an array';
+    }
+
+    for (const mortgage of dataObj.mortgages) {
+      const mortgageError = require('./mortgages').validateMortgage(mortgage);
+      if (mortgageError) {
+        return mortgageError;
       }
     }
   }

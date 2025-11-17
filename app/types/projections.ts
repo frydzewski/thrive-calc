@@ -1,6 +1,7 @@
 import { AccountType, Account } from './accounts';
 import { Scenario, AssumptionBucket, LumpSumEvent, getBucketForAge } from './scenarios';
 import { UserProfile } from './profile';
+import { getMortgagePaymentForYear, AnnualMortgagePayment } from './mortgages';
 
 export interface AnnualProjection {
   year: number;
@@ -21,7 +22,18 @@ export interface AnnualProjection {
     travel: number; // Inflated
     healthcare: number; // Inflated
     lumpSum: number; // NOT inflated (actual dollars)
+    mortgages: number; // Total mortgage payments (principal + interest + escrow + additional)
     total: number;
+  };
+
+  // Mortgage breakdown (separate from spending for tax deduction tracking)
+  mortgagePayments: {
+    principal: number; // Total principal paid across all mortgages
+    interest: number; // Total interest paid (tax deductible)
+    escrow: number; // Total escrow paid
+    additionalPrincipal: number; // Total additional principal paid
+    total: number; // Total mortgage payments
+    byMortgage: import('./mortgages').AnnualMortgagePayment[]; // Breakdown by individual mortgage
   };
 
   // Contributions (inflated to year's dollars, by account TYPE)
@@ -265,6 +277,30 @@ export function calculateScenarioProjection(
       .filter((e) => e.type === 'expense' && e.age === age)
       .reduce((sum, e) => sum + e.amount, 0);
 
+    // === MORTGAGE PAYMENTS (NOT inflated - actual dollar amounts) ===
+    const mortgagePaymentsForYear: AnnualMortgagePayment[] = [];
+    let totalMortgagePrincipal = 0;
+    let totalMortgageInterest = 0;
+    let totalMortgageEscrow = 0;
+    let totalMortgageAdditional = 0;
+
+    for (const mortgage of scenario.mortgages || []) {
+      const payment = getMortgagePaymentForYear(mortgage, year);
+      if (payment) {
+        mortgagePaymentsForYear.push(payment);
+        totalMortgagePrincipal += payment.principal;
+        totalMortgageInterest += payment.interest;
+        totalMortgageEscrow += payment.escrow;
+        totalMortgageAdditional += payment.additionalPrincipal;
+      }
+    }
+
+    const totalMortgagePayments =
+      totalMortgagePrincipal +
+      totalMortgageInterest +
+      totalMortgageEscrow +
+      totalMortgageAdditional;
+
     // === CONTRIBUTIONS (apply inflation, by account TYPE) ===
     const contributionsByType: Record<AccountType, number> = {
       '401k': 0,
@@ -305,7 +341,7 @@ export function calculateScenarioProjection(
     const totalIncome =
       employmentIncome + socialSecurityIncome + lumpSumIncome + totalGains;
     const totalSpending =
-      livingSpending + travelSpending + healthcareSpending + lumpSumExpenses;
+      livingSpending + travelSpending + healthcareSpending + lumpSumExpenses + totalMortgagePayments;
     const netIncome = totalIncome - totalSpending - totalContributions;
 
     // Adjust cash accounts for net income
@@ -353,7 +389,16 @@ export function calculateScenarioProjection(
         travel: travelSpending,
         healthcare: healthcareSpending,
         lumpSum: lumpSumExpenses,
+        mortgages: totalMortgagePayments,
         total: totalSpending,
+      },
+      mortgagePayments: {
+        principal: totalMortgagePrincipal,
+        interest: totalMortgageInterest,
+        escrow: totalMortgageEscrow,
+        additionalPrincipal: totalMortgageAdditional,
+        total: totalMortgagePayments,
+        byMortgage: mortgagePaymentsForYear,
       },
       contributions: {
         total: totalContributions,

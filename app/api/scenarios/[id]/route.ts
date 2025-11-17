@@ -11,6 +11,7 @@ import {
   validateUpdateScenario,
   validateBuckets,
 } from '@/app/types/scenarios';
+import { Mortgage } from '@/app/types/mortgages';
 import { calculateScenarioProjection, calculateAge } from '@/app/types/projections';
 import { UserProfile } from '@/app/types/profile';
 import { Account } from '@/app/types/accounts';
@@ -79,6 +80,7 @@ export async function GET(
       inflationRate: scenarioRecord.data.inflationRate,
       assumptionBuckets: scenarioRecord.data.assumptionBuckets || [],
       lumpSumEvents: scenarioRecord.data.lumpSumEvents || [],
+      mortgages: scenarioRecord.data.mortgages || [],
       projection: scenarioRecord.data.projection, // Include projection if it exists
       createdAt: scenarioRecord.createdAt,
       updatedAt: scenarioRecord.updatedAt,
@@ -230,6 +232,16 @@ export async function PUT(
       updates.lumpSumEvents = lumpSumEvents;
     }
 
+    if (body.mortgages !== undefined) {
+      // Ensure all mortgages have IDs
+      const mortgages = body.mortgages.map((mortgage: Mortgage) => ({
+        ...mortgage,
+        id: mortgage.id || uuidv4(),
+      }));
+
+      updates.mortgages = mortgages;
+    }
+
     if (body.isDefault !== undefined) {
       // If setting this scenario as default, unset any other default
       if (body.isDefault === true && !existingRecord.data.isDefault) {
@@ -262,6 +274,7 @@ export async function PUT(
     if (
       body.assumptionBuckets !== undefined ||
       body.lumpSumEvents !== undefined ||
+      body.mortgages !== undefined ||
       body.retirementAge !== undefined ||
       body.socialSecurityAge !== undefined ||
       body.socialSecurityIncome !== undefined ||
@@ -312,6 +325,7 @@ export async function PUT(
             inflationRate: scenarioData.inflationRate,
             assumptionBuckets: scenarioData.assumptionBuckets || [],
             lumpSumEvents: scenarioData.lumpSumEvents || [],
+            mortgages: scenarioData.mortgages || [],
           };
 
           // Calculate projection from current year to the end age specified in assumptions
@@ -353,6 +367,7 @@ export async function PUT(
       inflationRate: updatedScenarioData.inflationRate,
       assumptionBuckets: updatedScenarioData.assumptionBuckets || [],
       lumpSumEvents: updatedScenarioData.lumpSumEvents || [],
+      mortgages: updatedScenarioData.mortgages || [],
       projection: updatedScenarioData.projection,
     };
 
