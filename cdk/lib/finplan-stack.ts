@@ -136,10 +136,11 @@ export class FinPlanStack extends cdk.Stack {
     });
 
     // Import existing Cognito client secret from Secrets Manager
-    const cognitoClientSecret = secretsmanager.Secret.fromSecretCompleteArn(
+    // Using fromSecretNameV2 instead of hardcoded ARN for security best practices
+    const cognitoClientSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       'CognitoClientSecret',
-      'arn:aws:secretsmanager:us-east-1:398106244340:secret:finplan-cognito-client-secret-pHAIi7'
+      'finplan-cognito-client-secret'
     );
 
     // Create Cognito User Pool
@@ -339,17 +340,6 @@ export class FinPlanStack extends cdk.Stack {
     // Grant Secrets Manager permissions to ECS execution role (for container startup)
     nextAuthSecret.grantRead(fargateService.taskDefinition.executionRole!);
     cognitoClientSecret.grantRead(fargateService.taskDefinition.executionRole!);
-
-    // Explicitly grant permission for imported secret (grantRead may not work for imported secrets)
-    fargateService.taskDefinition.executionRole!.addToPrincipalPolicy(
-      new cdk.aws_iam.PolicyStatement({
-        effect: cdk.aws_iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          'arn:aws:secretsmanager:us-east-1:398106244340:secret:finplan-cognito-client-secret-pHAIi7',
-        ],
-      })
-    );
 
     // Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
