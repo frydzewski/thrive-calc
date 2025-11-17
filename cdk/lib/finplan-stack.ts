@@ -136,11 +136,11 @@ export class FinPlanStack extends cdk.Stack {
     });
 
     // Import existing Cognito client secret from Secrets Manager
-    // Using fromSecretNameV2 instead of hardcoded ARN for security best practices
-    const cognitoClientSecret = secretsmanager.Secret.fromSecretNameV2(
+    // Using fromSecretPartialArn to avoid hardcoding the random suffix
+    const cognitoClientSecret = secretsmanager.Secret.fromSecretPartialArn(
       this,
       'CognitoClientSecret',
-      'finplan-cognito-client-secret'
+      `arn:aws:secretsmanager:${this.region}:${this.account}:secret:finplan-cognito-client-secret`
     );
 
     // Create Cognito User Pool
