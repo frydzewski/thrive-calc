@@ -238,7 +238,7 @@ export function calculateScenarioProjection(
 
     // === INCOME (apply inflation to assumptions) ===
     const employmentIncome =
-      age < (assumptions.retirementAge || 999)
+      age < (scenario.retirementAge || 999)
         ? (assumptions.annualIncome || 0) * inflationFactor
         : 0;
 

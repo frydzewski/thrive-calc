@@ -9,9 +9,6 @@ export interface LumpSumEvent {
 }
 
 export interface Assumptions {
-  // Retirement
-  retirementAge?: number;
-
   // Income (in TODAY'S dollars - will be inflated)
   annualIncome?: number;
 
@@ -47,6 +44,7 @@ export interface Scenario {
   description?: string;
 
   // Scenario-level assumptions (apply to entire scenario)
+  retirementAge?: number;
   socialSecurityAge?: number;
   socialSecurityIncome?: number;
   investmentReturnRate?: number; // Same rate for ALL accounts
@@ -67,6 +65,7 @@ export interface Scenario {
 export interface CreateScenarioRequest {
   name: string;
   description?: string;
+  retirementAge?: number;
   socialSecurityAge?: number;
   socialSecurityIncome?: number;
   investmentReturnRate?: number;
@@ -78,6 +77,7 @@ export interface CreateScenarioRequest {
 export interface UpdateScenarioRequest {
   name?: string;
   description?: string;
+  retirementAge?: number;
   socialSecurityAge?: number;
   socialSecurityIncome?: number;
   investmentReturnRate?: number;
@@ -152,12 +152,6 @@ export function validateAssumptions(assumptions: unknown): string | null {
   }
 
   const assumptionsObj = assumptions as Record<string, unknown>;
-
-  if (assumptionsObj.retirementAge !== undefined) {
-    if (typeof assumptionsObj.retirementAge !== 'number' || assumptionsObj.retirementAge < 0 || assumptionsObj.retirementAge > 120) {
-      return 'Retirement age must be a number between 0 and 120';
-    }
-  }
 
   if (assumptionsObj.annualIncome !== undefined) {
     if (typeof assumptionsObj.annualIncome !== 'number' || assumptionsObj.annualIncome < 0) {
@@ -443,7 +437,6 @@ export function mergeAssumptions(current: Assumptions, previous?: Assumptions): 
   }
 
   return {
-    retirementAge: current.retirementAge ?? previous.retirementAge,
     annualIncome: current.annualIncome ?? previous.annualIncome,
     annualSpending: current.annualSpending ?? previous.annualSpending,
     annualTravelBudget: current.annualTravelBudget ?? previous.annualTravelBudget,

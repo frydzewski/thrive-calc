@@ -53,6 +53,7 @@ export async function GET() {
       name: record.data.name,
       isDefault: record.data.isDefault || false,
       description: record.data.description,
+      retirementAge: record.data.retirementAge,
       socialSecurityAge: record.data.socialSecurityAge,
       socialSecurityIncome: record.data.socialSecurityIncome,
       investmentReturnRate: record.data.investmentReturnRate,
@@ -197,6 +198,7 @@ export async function POST(request: NextRequest) {
           name: body.name.trim(),
           isDefault: isFirstScenario,
           description: body.description?.trim(),
+          retirementAge: body.retirementAge,
           socialSecurityAge: body.socialSecurityAge,
           socialSecurityIncome: body.socialSecurityIncome,
           investmentReturnRate: body.investmentReturnRate,
@@ -227,6 +229,7 @@ export async function POST(request: NextRequest) {
       name: body.name.trim(),
       isDefault: isFirstScenario, // Auto-set first scenario as default
       description: body.description?.trim() || undefined,
+      retirementAge: body.retirementAge,
       socialSecurityAge: body.socialSecurityAge,
       socialSecurityIncome: body.socialSecurityIncome,
       investmentReturnRate: body.investmentReturnRate,

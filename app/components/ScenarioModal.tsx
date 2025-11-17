@@ -28,6 +28,7 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
 
   const [name, setName] = useState(scenario?.name || '');
   const [description, setDescription] = useState(scenario?.description || '');
+  const [retirementAge, setRetirementAge] = useState<number | undefined>(scenario?.retirementAge);
   const [socialSecurityAge, setSocialSecurityAge] = useState<number | undefined>(scenario?.socialSecurityAge);
   const [socialSecurityIncome, setSocialSecurityIncome] = useState<number | undefined>(scenario?.socialSecurityIncome);
   const [investmentReturnRate, setInvestmentReturnRate] = useState<number | undefined>(scenario?.investmentReturnRate ?? 7);
@@ -61,7 +62,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
           startAge: 30,
           endAge: 100,
           assumptions: {
-            retirementAge: 65,
             annualIncome: 0,
             annualSpending: 0,
           },
@@ -107,7 +107,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
         assumptions: lastBucket
           ? { ...lastBucket.assumptions }
           : {
-              retirementAge: 65,
               annualIncome: 0,
               annualSpending: 0,
             },
@@ -259,6 +258,7 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
       const body: any = {
         name: name.trim(),
         description: description.trim() || undefined,
+        retirementAge,
         socialSecurityAge,
         socialSecurityIncome,
         investmentReturnRate,
@@ -354,6 +354,21 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Retirement Age
+                </label>
+                <input
+                  type="number"
+                  value={retirementAge ?? ''}
+                  onChange={(e) => setRetirementAge(e.target.value === '' ? undefined : Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-white dark:bg-zinc-800"
+                  min="0"
+                  max="120"
+                  placeholder="65"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   Social Security Age
                 </label>
                 <input
@@ -367,6 +382,9 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                   disabled={isLoading}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   Social Security Income ($)
@@ -381,9 +399,6 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                   disabled={isLoading}
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   Investment Return Rate (%)
@@ -400,6 +415,9 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                   disabled={isLoading}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                   Inflation Rate (%)
@@ -495,41 +513,22 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
                     </div>
                   </div>
 
-                  {/* Income & Retirement */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Annual Income ($)
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.annualIncome ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'annualIncome', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        placeholder="0"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                        Retirement Age
-                      </label>
-                      <input
-                        type="number"
-                        value={bucket.assumptions.retirementAge ?? ''}
-                        onChange={(e) =>
-                          updateAssumption(bucket.tempId, 'retirementAge', e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
-                        min="0"
-                        max="120"
-                        placeholder="65"
-                        disabled={isLoading}
-                      />
-                    </div>
+                  {/* Income */}
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                      Annual Income ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={bucket.assumptions.annualIncome ?? ''}
+                      onChange={(e) =>
+                        updateAssumption(bucket.tempId, 'annualIncome', e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md text-zinc-900 dark:text-white dark:bg-zinc-800"
+                      min="0"
+                      placeholder="0"
+                      disabled={isLoading}
+                    />
                   </div>
 
                   {/* Spending */}

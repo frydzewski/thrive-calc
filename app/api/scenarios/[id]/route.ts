@@ -72,6 +72,7 @@ export async function GET(
       name: scenarioRecord.data.name,
       isDefault: scenarioRecord.data.isDefault || false,
       description: scenarioRecord.data.description,
+      retirementAge: scenarioRecord.data.retirementAge,
       socialSecurityAge: scenarioRecord.data.socialSecurityAge,
       socialSecurityIncome: scenarioRecord.data.socialSecurityIncome,
       investmentReturnRate: scenarioRecord.data.investmentReturnRate,
@@ -180,6 +181,10 @@ export async function PUT(
       updates.description = body.description?.trim() || undefined;
     }
 
+    if (body.retirementAge !== undefined) {
+      updates.retirementAge = body.retirementAge;
+    }
+
     if (body.socialSecurityAge !== undefined) {
       updates.socialSecurityAge = body.socialSecurityAge;
     }
@@ -257,6 +262,7 @@ export async function PUT(
     if (
       body.assumptionBuckets !== undefined ||
       body.lumpSumEvents !== undefined ||
+      body.retirementAge !== undefined ||
       body.socialSecurityAge !== undefined ||
       body.socialSecurityIncome !== undefined ||
       body.investmentReturnRate !== undefined ||
@@ -299,6 +305,7 @@ export async function PUT(
             name: scenarioData.name,
             isDefault: scenarioData.isDefault || false,
             description: scenarioData.description,
+            retirementAge: scenarioData.retirementAge,
             socialSecurityAge: scenarioData.socialSecurityAge,
             socialSecurityIncome: scenarioData.socialSecurityIncome,
             investmentReturnRate: scenarioData.investmentReturnRate,
@@ -339,6 +346,7 @@ export async function PUT(
       name: updatedScenarioData.name,
       isDefault: updatedScenarioData.isDefault || false,
       description: updatedScenarioData.description,
+      retirementAge: updatedScenarioData.retirementAge,
       socialSecurityAge: updatedScenarioData.socialSecurityAge,
       socialSecurityIncome: updatedScenarioData.socialSecurityIncome,
       investmentReturnRate: updatedScenarioData.investmentReturnRate,
