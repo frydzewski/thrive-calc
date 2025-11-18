@@ -11,8 +11,6 @@ const navItems = [
   { name: 'Dashboard', path: '/' },
   { name: 'Accounts', path: '/accounts' },
   { name: 'Scenarios', path: '/scenarios' },
-  { name: 'Savings Goals', path: '/savings-goals' },
-  { name: 'Portfolio', path: '/portfolio' },
   { name: 'Reports', path: '/reports' },
 ];
 
