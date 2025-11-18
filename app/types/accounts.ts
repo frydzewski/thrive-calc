@@ -10,7 +10,7 @@ export type AccountStatus = 'active' | 'closed';
 
 export interface Account {
   id: string; // UUID
-  username: string;
+  userId: string; // Cognito sub ID
   accountType: AccountType;
   accountName: string; // User-friendly name like "Vanguard 401k" or "Emergency Fund"
   institution?: string; // Bank/brokerage name

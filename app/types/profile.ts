@@ -1,7 +1,7 @@
 export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed';
 
 export interface UserProfile {
-  username: string;
+  userId: string; // Cognito sub ID
   firstname: string;
   dateOfBirth: string; // ISO date format (YYYY-MM-DD)
   maritalStatus: MaritalStatus;

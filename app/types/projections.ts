@@ -74,7 +74,7 @@ export interface ScenarioProjection {
 
 export interface StoredProjection {
   id: string;
-  username: string;
+  userId: string; // Cognito sub ID
   scenarioId: string;
   scenarioName: string;
   calculatedAt: string;

@@ -39,7 +39,7 @@ export interface AssumptionBucket {
 
 export interface Scenario {
   id: string;
-  username: string;
+  userId: string; // Cognito sub ID
   name: string;
   isDefault: boolean;
   description?: string;
