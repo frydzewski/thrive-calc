@@ -382,39 +382,120 @@ export default function ScenarioDetails() {
                   Net Income
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Retirement
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Investment
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Cash
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                   Total Balance
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {projection.years.map((year: AnnualProjection) => (
-                <tr
-                  key={year.year}
-                  className={year.netIncome < 0 ? 'bg-red-50/50 dark:bg-red-900/10' : ''}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap text-zinc-900 dark:text-white font-medium">
-                    {year.year}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                    {year.age}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
-                    ${Math.round(year.income.total).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
-                    ${Math.round(year.spending.total).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
-                    ${Math.round(year.contributions.total).toLocaleString()}
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-right font-medium ${year.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    ${Math.round(year.netIncome).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white font-semibold">
-                    ${Math.round(year.accountBalances.total).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
+              {projection.years.map((year: AnnualProjection, index: number) => {
+                // Calculate category balances
+                const retirementBalance = 
+                  (year.accountBalances.byAccountType['401k'] || 0) +
+                  (year.accountBalances.byAccountType['traditional-ira'] || 0) +
+                  (year.accountBalances.byAccountType['roth-ira'] || 0);
+                
+                const investmentBalance = year.accountBalances.byAccountType['brokerage'] || 0;
+                
+                const cashBalance = 
+                  (year.accountBalances.byAccountType['checking'] || 0) +
+                  (year.accountBalances.byAccountType['savings'] || 0);
+
+                // Calculate changes from previous year
+                let retirementChange = 0;
+                let investmentChange = 0;
+                let cashChange = 0;
+
+                if (index > 0) {
+                  const prevYear = projection.years[index - 1];
+                  const prevRetirement = 
+                    (prevYear.accountBalances.byAccountType['401k'] || 0) +
+                    (prevYear.accountBalances.byAccountType['traditional-ira'] || 0) +
+                    (prevYear.accountBalances.byAccountType['roth-ira'] || 0);
+                  const prevInvestment = prevYear.accountBalances.byAccountType['brokerage'] || 0;
+                  const prevCash = 
+                    (prevYear.accountBalances.byAccountType['checking'] || 0) +
+                    (prevYear.accountBalances.byAccountType['savings'] || 0);
+
+                  retirementChange = retirementBalance - prevRetirement;
+                  investmentChange = investmentBalance - prevInvestment;
+                  cashChange = cashBalance - prevCash;
+                }
+
+                return (
+                  <tr
+                    key={year.year}
+                    className={year.netIncome < 0 ? 'bg-red-50/50 dark:bg-red-900/10' : ''}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-zinc-900 dark:text-white font-medium">
+                      {year.year}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+                      {year.age}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
+                      ${Math.round(year.income.total).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
+                      ${Math.round(year.spending.total).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
+                      ${Math.round(year.contributions.total).toLocaleString()}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-right font-medium ${year.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      ${Math.round(year.netIncome).toLocaleString()}
+                    </td>
+                    
+                    {/* Retirement Balance */}
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="text-zinc-900 dark:text-white">
+                        ${Math.round(retirementBalance).toLocaleString()}
+                      </div>
+                      {index > 0 && (
+                        <div className={`text-xs ${retirementChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {retirementChange >= 0 ? '+' : ''}{Math.round(retirementChange).toLocaleString()}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Investment Balance */}
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="text-zinc-900 dark:text-white">
+                        ${Math.round(investmentBalance).toLocaleString()}
+                      </div>
+                      {index > 0 && (
+                        <div className={`text-xs ${investmentChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {investmentChange >= 0 ? '+' : ''}{Math.round(investmentChange).toLocaleString()}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Cash Balance */}
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="text-zinc-900 dark:text-white">
+                        ${Math.round(cashBalance).toLocaleString()}
+                      </div>
+                      {index > 0 && (
+                        <div className={`text-xs ${cashChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {cashChange >= 0 ? '+' : ''}{Math.round(cashChange).toLocaleString()}
+                        </div>
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white font-semibold">
+                      ${Math.round(year.accountBalances.total).toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
