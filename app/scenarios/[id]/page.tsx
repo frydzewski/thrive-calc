@@ -379,6 +379,9 @@ export default function ScenarioDetails() {
                   Contributions
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Income After Contributions
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                   Net Income
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
@@ -449,6 +452,9 @@ export default function ScenarioDetails() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
                       ${Math.round(year.contributions.total).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white font-medium">
+                      ${Math.round(year.incomeAfterContributions).toLocaleString()}
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-right font-medium ${year.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       ${Math.round(year.netIncome).toLocaleString()}

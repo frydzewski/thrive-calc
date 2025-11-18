@@ -42,6 +42,9 @@ export interface AnnualProjection {
     byAccountType: Record<AccountType, number>;
   };
 
+  // Income after contributions (Total Income - Contributions)
+  incomeAfterContributions: number;
+
   netIncome: number;
 
   // Account balances (aggregated by account TYPE)
@@ -471,7 +474,13 @@ export function calculateScenarioProjection(
     // Total income MUST equal total spending for a balanced projection
     // Withdrawals from accounts count as income (realizing saved assets)
     const totalIncome = preWithdrawalIncome + totalWithdrawals;
-    const netIncome = totalIncome - totalSpending - totalContributions;
+    
+    // Income after contributions: contributions come OUT of income first
+    // This shows what's available to spend after saving/investing
+    const incomeAfterContributions = totalIncome - totalContributions;
+    
+    // Net income: what's left after spending (should be ~0 for balanced projections)
+    const netIncome = incomeAfterContributions - totalSpending;
 
     // Store yearly projection
     yearlyProjections.push({
@@ -504,6 +513,7 @@ export function calculateScenarioProjection(
         total: totalContributions,
         byAccountType: { ...contributionsByType },
       },
+      incomeAfterContributions,
       netIncome,
       accountBalances: {
         total: Object.values(accountBalances).reduce((sum, b) => sum + b, 0),

@@ -561,6 +561,7 @@ describe('Projection Calculations', () => {
             'checking': 0,
           },
         },
+        incomeAfterContributions: 78500, // 110000 - 31500
         netIncome: 3500,
         accountBalances: {
           total: 200000,
@@ -611,6 +612,7 @@ describe('Projection Calculations', () => {
             'checking': 0,
           },
         },
+        incomeAfterContributions: 82212, // 114500 - 32288
         netIncome: 5337,
         accountBalances: {
           total: 220000,
@@ -661,6 +663,7 @@ describe('Projection Calculations', () => {
             'checking': 0,
           },
         },
+        incomeAfterContributions: 14000, // 14000 - 0
         netIncome: -64834, // Deficit year
         accountBalances: {
           total: 180000,
