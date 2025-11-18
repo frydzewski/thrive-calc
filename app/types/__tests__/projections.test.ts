@@ -1694,20 +1694,19 @@ describe('Projection Calculations', () => {
       );
 
       // Year 1: Starting balance + growth + contribution
-      // Income includes employment income (inflated 2%) + investment gains
+      // Investment gains stay in investment accounts, NOT counted as income
       const year1 = projection.years[0];
 
       const year1_401k_growth = 100000 * 0.06; // 6,000
       const year1_brokerage_growth = 50000 * 0.06; // 3,000
-      const year1_investment_gains = year1_401k_growth + year1_brokerage_growth; // 9,000
 
       const year1_employment_income = 120000 * 1.02; // 122,400 (2% income inflation)
-      const year1_total_income = year1_employment_income + year1_investment_gains; // 131,400
-      const year1_surplus = year1_total_income - 80000 - 30000; // 21,400
+      const year1_total_income = year1_employment_income; // Only employment income
+      const year1_surplus = year1_total_income - 80000 - 30000; // 12,400
 
       const year1_401k = 100000 + year1_401k_growth + 20000; // 126,000
       const year1_brokerage = 50000 + year1_brokerage_growth + 10000; // 63,000
-      const year1_checking = 10000 + year1_surplus; // 31,400
+      const year1_checking = 10000 + year1_surplus; // 22,400
 
       expect(year1.accountBalances.byAccountType['401k']).toBeCloseTo(year1_401k, 0);
       expect(year1.accountBalances.byAccountType['brokerage']).toBeCloseTo(year1_brokerage, 0);
@@ -1718,10 +1717,9 @@ describe('Projection Calculations', () => {
 
       const year2_401k_growth = year1_401k * 0.06;
       const year2_brokerage_growth = year1_brokerage * 0.06;
-      const year2_investment_gains = year2_401k_growth + year2_brokerage_growth;
 
       const year2_employment_income = year1_employment_income * 1.02;
-      const year2_total_income = year2_employment_income + year2_investment_gains;
+      const year2_total_income = year2_employment_income; // Only employment income
       const year2_surplus = year2_total_income - 80000 - 30000;
 
       const year2_401k = year1_401k + year2_401k_growth + 20000;
@@ -1737,10 +1735,9 @@ describe('Projection Calculations', () => {
 
       const year3_401k_growth = year2_401k * 0.06;
       const year3_brokerage_growth = year2_brokerage * 0.06;
-      const year3_investment_gains = year3_401k_growth + year3_brokerage_growth;
 
       const year3_employment_income = year2_employment_income * 1.02;
-      const year3_total_income = year3_employment_income + year3_investment_gains;
+      const year3_total_income = year3_employment_income; // Only employment income
       const year3_surplus = year3_total_income - 80000 - 30000;
 
       const year3_401k = year2_401k + year3_401k_growth + 20000;
@@ -1891,7 +1888,7 @@ describe('Projection Calculations', () => {
             endAge: 39,
             assumptions: {
               annualIncome: 0,
-              annualSpending: 15000, // Spend the investment gains to keep cash balances unchanged
+              annualSpending: 0, // No spending, no deficit - investment gains stay in investment accounts
               annualTravelBudget: 0,
               annualHealthcareCosts: 0,
               contributions: {
@@ -1917,7 +1914,7 @@ describe('Projection Calculations', () => {
 
       const year1 = projection.years[0];
 
-      // Cash accounts should NOT receive investment growth
+      // With no income and no spending, cash accounts remain unchanged
       expect(year1.accountBalances.byAccountType['checking']).toBe(10000);
       expect(year1.accountBalances.byAccountType['savings']).toBe(20000);
 

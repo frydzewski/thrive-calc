@@ -386,10 +386,11 @@ export function calculateScenarioProjection(
     }
 
     // === CALCULATE PRE-WITHDRAWAL INCOME AND EXPENSES ===
-    // Pre-withdrawal income includes employment, social security, investment gains, RMDs, etc.
-    // but does NOT yet include withdrawals from accounts
+    // Pre-withdrawal income includes employment, social security, RMDs, lump sums
+    // Investment gains grow accounts but are NOT income until withdrawn
+    // Withdrawals are added later to balance the equation
     const preWithdrawalIncome =
-      employmentIncome + socialSecurityIncome + lumpSumIncome + totalGains + rmdAmount;
+      employmentIncome + socialSecurityIncome + lumpSumIncome + rmdAmount;
     const totalSpending =
       livingSpending + travelSpending + healthcareSpending + lumpSumExpenses + totalMortgagePayments;
     const netBeforeWithdrawals = preWithdrawalIncome - totalSpending - totalContributions;
