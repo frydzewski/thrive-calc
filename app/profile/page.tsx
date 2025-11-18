@@ -239,7 +239,7 @@ export default function ProfilePage() {
               <div>
                 <dt className="text-sm text-zinc-600 dark:text-zinc-400">Email</dt>
                 <dd className="text-sm font-medium text-zinc-900 dark:text-white">
-                  {profile.username}
+                  {session?.user?.email}
                 </dd>
               </div>
               {profile.createdAt && (
