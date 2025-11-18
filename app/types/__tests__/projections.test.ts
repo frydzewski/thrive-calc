@@ -712,4 +712,248 @@ describe('Projection Calculations', () => {
       expect(summary.firstDeficitYear).toBeUndefined();
     });
   });
+
+  describe('Cash Flow Withdrawal Priority', () => {
+    it('should withdraw from checking first when in deficit', () => {
+      const accountsWithChecking: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-savings',
+          username: 'test@example.com',
+          accountType: 'savings',
+          accountName: 'Savings',
+          institution: 'Bank',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const deficitScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0, // Disable returns to isolate cash flow logic
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Deficit Test',
+            startAge: 39, // Profile born 1985, so 39 in 2024
+            endAge: 50,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 30000, // Will cause $30k deficit
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        deficitScenario,
+        sampleProfile,
+        accountsWithChecking,
+        2024,
+        2025
+      );
+
+      // Checking should be depleted first
+      const year1Checking = projection.years[0].accountBalances.byAccountType['checking'];
+      const year1Savings = projection.years[0].accountBalances.byAccountType['savings'];
+
+      expect(year1Checking).toBeLessThan(50000); // Checking decreased
+      expect(year1Savings).toBe(100000); // Savings unchanged (checking depleted first)
+    });
+
+    it('should cascade through withdrawal hierarchy: checking -> savings -> brokerage -> retirement', () => {
+      const multiAccountSetup: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 10000, // Small balance, will be depleted
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-savings',
+          username: 'test@example.com',
+          accountType: 'savings',
+          accountName: 'Savings',
+          institution: 'Bank',
+          balance: 20000, // Will be tapped after checking
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-brokerage',
+          username: 'test@example.com',
+          accountType: 'brokerage',
+          accountName: 'Brokerage',
+          institution: 'Vanguard',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Employer',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const largeDeficitScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0, // Disable returns to isolate cash flow logic
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Large Deficit',
+            startAge: 39, // Profile born 1985, so 39 in 2024
+            endAge: 50,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 40000, // $40k deficit
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        largeDeficitScenario,
+        sampleProfile,
+        multiAccountSetup,
+        2024,
+        2025
+      );
+
+      const balances = projection.years[0].accountBalances.byAccountType;
+
+      // Checking should be fully depleted or very low
+      expect(balances['checking']).toBeLessThan(1000);
+
+      // Savings should be depleted (tapped after checking)
+      expect(balances['savings']).toBeLessThan(20000);
+
+      // Brokerage should have been tapped
+      expect(balances['brokerage']).toBeLessThan(50000);
+
+      // 401k should have minimal depletion (only if needed)
+      expect(balances['401k']).toBeLessThanOrEqual(100000);
+    });
+
+    it('should only tap retirement accounts as last resort', () => {
+      const retirementLastResort: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 5000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Fidelity',
+          balance: 200000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-roth-ira',
+          username: 'test@example.com',
+          accountType: 'roth-ira',
+          accountName: 'Roth IRA',
+          institution: 'Vanguard',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const retirementDeficitScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0, // Disable returns to isolate cash flow logic
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Retirement Deficit',
+            startAge: 39, // Profile born 1985, so 39 in 2024
+            endAge: 50,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 20000, // $20k deficit
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        retirementDeficitScenario,
+        sampleProfile,
+        retirementLastResort,
+        2024,
+        2025
+      );
+
+      const balances = projection.years[0].accountBalances.byAccountType;
+
+      // Checking depleted or very low
+      expect(balances['checking']).toBeLessThan(1000);
+
+      // Traditional IRA tapped for deficit
+      expect(balances['traditional-ira']).toBeLessThan(200000);
+
+      // Roth IRA untouched or minimally touched (last resort)
+      expect(balances['roth-ira']).toBeGreaterThanOrEqual(99000); // Allow for small withdrawals
+    });
+  });
 });
