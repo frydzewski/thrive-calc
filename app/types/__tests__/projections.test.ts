@@ -1420,4 +1420,506 @@ describe('Projection Calculations', () => {
       expect(year1.accountBalances.byAccountType['traditional-ira']).toBeCloseTo(1000000 - expectedRmd, 0);
     });
   });
+
+  describe('Per-Account Balance Tracking', () => {
+    it('should track each account type separately with starting balances', () => {
+      const multiAccountSetup: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 10000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Vanguard',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Fidelity',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-brokerage',
+          username: 'test@example.com',
+          accountType: 'brokerage',
+          accountName: 'Brokerage',
+          institution: 'Schwab',
+          balance: 75000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const simpleScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0, // Disable returns to isolate balance tracking
+        socialSecurityAge: 100,
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Balance Tracking Test',
+            startAge: 39,
+            endAge: 39,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 0,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        simpleScenario,
+        sampleProfile,
+        multiAccountSetup,
+        2024,
+        2024
+      );
+
+      const year1 = projection.years[0];
+
+      // Verify each account type is tracked separately with correct starting balances
+      expect(year1.accountBalances.byAccountType['checking']).toBe(10000);
+      expect(year1.accountBalances.byAccountType['401k']).toBe(100000);
+      expect(year1.accountBalances.byAccountType['traditional-ira']).toBe(50000);
+      expect(year1.accountBalances.byAccountType['brokerage']).toBe(75000);
+      expect(year1.accountBalances.total).toBe(235000);
+    });
+
+    it('should correctly allocate contributions to specified account types', () => {
+      const multiAccountSetup: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Vanguard',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-roth-ira',
+          username: 'test@example.com',
+          accountType: 'roth-ira',
+          accountName: 'Roth IRA',
+          institution: 'Fidelity',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-brokerage',
+          username: 'test@example.com',
+          accountType: 'brokerage',
+          accountName: 'Brokerage',
+          institution: 'Schwab',
+          balance: 25000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const contributionScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0,
+        inflationRate: 0, // Disable inflation to simplify calculations
+        socialSecurityAge: 100,
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Contribution Test',
+            startAge: 39,
+            endAge: 39,
+            assumptions: {
+              annualIncome: 150000,
+              annualSpending: 80000,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 23000, // Max 401k contribution
+                'traditional-ira': 0,
+                'roth-ira': 7000, // Max IRA contribution
+                'brokerage': 10000,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        contributionScenario,
+        sampleProfile,
+        multiAccountSetup,
+        2024,
+        2024
+      );
+
+      const year1 = projection.years[0];
+
+      // Verify contributions were allocated correctly
+      expect(year1.contributions.byAccountType['401k']).toBe(23000);
+      expect(year1.contributions.byAccountType['roth-ira']).toBe(7000);
+      expect(year1.contributions.byAccountType['brokerage']).toBe(10000);
+      expect(year1.contributions.total).toBe(40000);
+
+      // Verify account balances increased by contributions
+      expect(year1.accountBalances.byAccountType['401k']).toBe(100000 + 23000);
+      expect(year1.accountBalances.byAccountType['roth-ira']).toBe(50000 + 7000);
+      expect(year1.accountBalances.byAccountType['brokerage']).toBe(25000 + 10000);
+
+      // Checking should have surplus after contributions
+      // Income is inflated by 2% in year 1: 150k * 1.02 = 153k
+      // Surplus: 153k - 80k - 40k = 33k
+      expect(year1.accountBalances.byAccountType['checking']).toBeCloseTo(50000 + 33000, 0);
+    });
+
+    it('should track balances correctly over multiple years with contributions and growth', () => {
+      const multiAccountSetup: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 10000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Vanguard',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-brokerage',
+          username: 'test@example.com',
+          accountType: 'brokerage',
+          accountName: 'Brokerage',
+          institution: 'Schwab',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const multiYearScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 6, // 6% annual return
+        socialSecurityAge: 100,
+        socialSecurityIncome: 0,
+        inflationRate: 0, // Disable inflation to simplify calculations
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Multi-Year Growth',
+            startAge: 39,
+            endAge: 41, // 3 years
+            assumptions: {
+              annualIncome: 120000,
+              annualSpending: 80000,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 20000,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 10000,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        multiYearScenario,
+        sampleProfile,
+        multiAccountSetup,
+        2024,
+        2026 // 3 years
+      );
+
+      // Year 1: Starting balance + growth + contribution
+      // Income includes employment income (inflated 2%) + investment gains
+      const year1 = projection.years[0];
+
+      const year1_401k_growth = 100000 * 0.06; // 6,000
+      const year1_brokerage_growth = 50000 * 0.06; // 3,000
+      const year1_investment_gains = year1_401k_growth + year1_brokerage_growth; // 9,000
+
+      const year1_employment_income = 120000 * 1.02; // 122,400 (2% income inflation)
+      const year1_total_income = year1_employment_income + year1_investment_gains; // 131,400
+      const year1_surplus = year1_total_income - 80000 - 30000; // 21,400
+
+      const year1_401k = 100000 + year1_401k_growth + 20000; // 126,000
+      const year1_brokerage = 50000 + year1_brokerage_growth + 10000; // 63,000
+      const year1_checking = 10000 + year1_surplus; // 31,400
+
+      expect(year1.accountBalances.byAccountType['401k']).toBeCloseTo(year1_401k, 0);
+      expect(year1.accountBalances.byAccountType['brokerage']).toBeCloseTo(year1_brokerage, 0);
+      expect(year1.accountBalances.byAccountType['checking']).toBeCloseTo(year1_checking, 0);
+
+      // Year 2: Previous balance + growth + contribution
+      const year2 = projection.years[1];
+
+      const year2_401k_growth = year1_401k * 0.06;
+      const year2_brokerage_growth = year1_brokerage * 0.06;
+      const year2_investment_gains = year2_401k_growth + year2_brokerage_growth;
+
+      const year2_employment_income = year1_employment_income * 1.02;
+      const year2_total_income = year2_employment_income + year2_investment_gains;
+      const year2_surplus = year2_total_income - 80000 - 30000;
+
+      const year2_401k = year1_401k + year2_401k_growth + 20000;
+      const year2_brokerage = year1_brokerage + year2_brokerage_growth + 10000;
+      const year2_checking = year1_checking + year2_surplus;
+
+      expect(year2.accountBalances.byAccountType['401k']).toBeCloseTo(year2_401k, 0);
+      expect(year2.accountBalances.byAccountType['brokerage']).toBeCloseTo(year2_brokerage, 0);
+      expect(year2.accountBalances.byAccountType['checking']).toBeCloseTo(year2_checking, 0);
+
+      // Year 3: Previous balance + growth + contribution
+      const year3 = projection.years[2];
+
+      const year3_401k_growth = year2_401k * 0.06;
+      const year3_brokerage_growth = year2_brokerage * 0.06;
+      const year3_investment_gains = year3_401k_growth + year3_brokerage_growth;
+
+      const year3_employment_income = year2_employment_income * 1.02;
+      const year3_total_income = year3_employment_income + year3_investment_gains;
+      const year3_surplus = year3_total_income - 80000 - 30000;
+
+      const year3_401k = year2_401k + year3_401k_growth + 20000;
+      const year3_brokerage = year2_brokerage + year3_brokerage_growth + 10000;
+      const year3_checking = year2_checking + year3_surplus;
+
+      expect(year3.accountBalances.byAccountType['401k']).toBeCloseTo(year3_401k, 0);
+      expect(year3.accountBalances.byAccountType['brokerage']).toBeCloseTo(year3_brokerage, 0);
+      expect(year3.accountBalances.byAccountType['checking']).toBeCloseTo(year3_checking, 0);
+    });
+
+    it('should correctly track withdrawals from specific account types in deficit scenarios', () => {
+      const multiAccountSetup: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 15000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-savings',
+          username: 'test@example.com',
+          accountType: 'savings',
+          accountName: 'Savings',
+          institution: 'Bank',
+          balance: 20000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-brokerage',
+          username: 'test@example.com',
+          accountType: 'brokerage',
+          accountName: 'Brokerage',
+          institution: 'Schwab',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const deficitScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0,
+        inflationRate: 0, // Disable inflation to simplify calculations
+        socialSecurityAge: 100,
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Deficit Withdrawal',
+            startAge: 39,
+            endAge: 39,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 50000, // $50k deficit
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        deficitScenario,
+        sampleProfile,
+        multiAccountSetup,
+        2024,
+        2024
+      );
+
+      const year1 = projection.years[0];
+
+      // Deficit is $50k. Should withdraw: $15k from checking, $20k from savings, $15k from brokerage
+      expect(year1.accountBalances.byAccountType['checking']).toBeLessThan(1000); // Depleted
+      expect(year1.accountBalances.byAccountType['savings']).toBeLessThan(1000); // Depleted
+      expect(year1.accountBalances.byAccountType['brokerage']).toBeCloseTo(100000 - 15000, 0); // $85k remaining
+      expect(year1.accountBalances.total).toBeCloseTo(85000, 0);
+    });
+
+    it('should apply investment growth only to investment accounts, not cash accounts', () => {
+      const mixedAccountSetup: Account[] = [
+        {
+          id: 'acc-checking',
+          username: 'test@example.com',
+          accountType: 'checking',
+          accountName: 'Checking',
+          institution: 'Bank',
+          balance: 10000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-savings',
+          username: 'test@example.com',
+          accountType: 'savings',
+          accountName: 'Savings',
+          institution: 'Bank',
+          balance: 20000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Vanguard',
+          balance: 100000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-brokerage',
+          username: 'test@example.com',
+          accountType: 'brokerage',
+          accountName: 'Brokerage',
+          institution: 'Schwab',
+          balance: 50000,
+          asOfDate: '2024-01-01',
+          status: 'active',
+        },
+      ];
+
+      const growthScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 10, // 10% annual return
+        inflationRate: 0, // Disable inflation
+        socialSecurityAge: 100,
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Selective Growth Test',
+            startAge: 39,
+            endAge: 39,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 15000, // Spend the investment gains to keep cash balances unchanged
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        growthScenario,
+        sampleProfile,
+        mixedAccountSetup,
+        2024,
+        2024
+      );
+
+      const year1 = projection.years[0];
+
+      // Cash accounts should NOT receive investment growth
+      expect(year1.accountBalances.byAccountType['checking']).toBe(10000);
+      expect(year1.accountBalances.byAccountType['savings']).toBe(20000);
+
+      // Investment accounts SHOULD receive 10% growth
+      expect(year1.accountBalances.byAccountType['401k']).toBeCloseTo(110000, 0);
+      expect(year1.accountBalances.byAccountType['brokerage']).toBeCloseTo(55000, 0);
+
+      // Total investment gains should be from investment accounts only
+      expect(year1.income.investmentGains).toBeCloseTo(15000, 0); // 10k from 401k + 5k from brokerage
+    });
+  });
 });
