@@ -17,14 +17,14 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ScenarioResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Validate UUID format for ID
@@ -36,7 +36,7 @@ export async function POST(
     }
 
     // Verify scenario exists
-    const scenarioRecord = await getUserData(username, DATA_TYPE, id);
+    const scenarioRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!scenarioRecord) {
       return NextResponse.json<ScenarioResponse>(
@@ -52,7 +52,7 @@ export async function POST(
           success: true,
           scenario: {
             id,
-            username,
+            userId,
             ...scenarioRecord.data,
             createdAt: scenarioRecord.createdAt,
             updatedAt: scenarioRecord.updatedAt,
@@ -63,11 +63,11 @@ export async function POST(
     }
 
     // Unset any other default scenarios
-    const allScenarios = await listUserData(username, DATA_TYPE);
+    const allScenarios = await listUserData(userId, DATA_TYPE);
     for (const scenario of allScenarios) {
       if (scenario.data.isDefault && scenario.recordId !== id) {
         await saveUserData(
-          username,
+          userId,
           DATA_TYPE,
           {
             ...scenario.data,
@@ -84,14 +84,14 @@ export async function POST(
       isDefault: true,
     };
 
-    await saveUserData(username, DATA_TYPE, updatedData, id);
+    await saveUserData(userId, DATA_TYPE, updatedData, id);
 
     return NextResponse.json<ScenarioResponse>(
       {
         success: true,
         scenario: {
           id,
-          username,
+          userId,
           ...updatedData,
         },
       },

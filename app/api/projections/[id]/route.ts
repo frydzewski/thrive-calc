@@ -20,14 +20,14 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<StoredProjectionResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Validate UUID format for ID
@@ -38,7 +38,7 @@ export async function GET(
       );
     }
 
-    const projectionRecord = await getUserData(username, DATA_TYPE, id);
+    const projectionRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!projectionRecord) {
       return NextResponse.json<StoredProjectionResponse>(
@@ -49,7 +49,7 @@ export async function GET(
 
     const storedProjection: StoredProjection = {
       id,
-      username,
+      userId,
       scenarioId: projectionRecord.data.scenarioId,
       scenarioName: projectionRecord.data.scenarioName,
       calculatedAt: projectionRecord.data.calculatedAt,
@@ -83,14 +83,14 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<StoredProjectionResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Validate UUID format for ID
@@ -102,7 +102,7 @@ export async function DELETE(
     }
 
     // Verify projection exists
-    const existingRecord = await getUserData(username, DATA_TYPE, id);
+    const existingRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!existingRecord) {
       return NextResponse.json<StoredProjectionResponse>(
@@ -111,7 +111,7 @@ export async function DELETE(
       );
     }
 
-    await deleteUserData(username, DATA_TYPE, id);
+    await deleteUserData(userId, DATA_TYPE, id);
 
     return NextResponse.json<StoredProjectionResponse>(
       { success: true },

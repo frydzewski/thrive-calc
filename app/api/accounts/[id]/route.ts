@@ -51,17 +51,17 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<AccountResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
-    const accountRecord = await getUserData(username, DATA_TYPE, id);
+    const accountRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!accountRecord) {
       return NextResponse.json<AccountResponse>(
@@ -72,7 +72,7 @@ export async function GET(
 
     const account: Account = {
       id,
-      username,
+      userId,
       accountType: accountRecord.data.accountType,
       accountName: accountRecord.data.accountName,
       institution: accountRecord.data.institution,
@@ -107,19 +107,19 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<AccountResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
     const body = await request.json();
 
     // Get existing account
-    const existingRecord = await getUserData(username, DATA_TYPE, id);
+    const existingRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!existingRecord) {
       return NextResponse.json<AccountResponse>(
@@ -169,11 +169,11 @@ export async function PUT(
       ...updates,
     };
 
-    await saveUserData(username, DATA_TYPE, accountData, id);
+    await saveUserData(userId, DATA_TYPE, accountData, id);
 
     const account: Account = {
       id,
-      username,
+      userId,
       accountType: accountData.accountType,
       accountName: accountData.accountName,
       institution: accountData.institution,
@@ -206,18 +206,18 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<AccountResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Verify account exists
-    const existingRecord = await getUserData(username, DATA_TYPE, id);
+    const existingRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!existingRecord) {
       return NextResponse.json<AccountResponse>(
@@ -226,7 +226,7 @@ export async function DELETE(
       );
     }
 
-    await deleteUserData(username, DATA_TYPE, id);
+    await deleteUserData(userId, DATA_TYPE, id);
 
     return NextResponse.json<AccountResponse>(
       { success: true },

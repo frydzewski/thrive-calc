@@ -37,20 +37,20 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ScenariosListResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
 
-    const scenarioRecords = await listUserData(username, DATA_TYPE);
+    const scenarioRecords = await listUserData(userId, DATA_TYPE);
 
     const scenarios: Scenario[] = scenarioRecords.map((record) => ({
       id: record.recordId,
-      username,
+      userId,
       name: record.data.name,
       isDefault: record.data.isDefault || false,
       description: record.data.description,
@@ -94,14 +94,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ScenarioResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
 
     // Parse JSON body with error handling
     let body;
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     }));
 
     // Check if this is the first scenario for this user
-    const existingScenarios = await listUserData(username, DATA_TYPE);
+    const existingScenarios = await listUserData(userId, DATA_TYPE);
     const isFirstScenario = existingScenarios.length === 0;
 
     // Check if a scenario with this name already exists
@@ -170,13 +170,13 @@ export async function POST(request: NextRequest) {
     // This provides immediate insights without requiring separate calculation step
     let projection;
     try {
-      const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
-      const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
+      const profileRecord = await getUserData(userId, PROFILE_DATA_TYPE, 'profile');
+      const accountRecords = await listUserData(userId, ACCOUNT_DATA_TYPE);
 
       if (profileRecord?.data) {
         // Build user profile from stored data
         const userProfile: UserProfile = {
-          username,
+          userId,
           firstname: profileRecord.data.firstname,
           dateOfBirth: profileRecord.data.dateOfBirth,
           maritalStatus: profileRecord.data.maritalStatus || 'single',
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
         // Aggregate user's accounts by type
         const accounts: Account[] = accountRecords.map((record) => ({
           id: record.recordId,
-          username,
+          userId,
           accountType: record.data.accountType,
           accountName: record.data.accountName,
           institution: record.data.institution,
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
         // Create temporary scenario for calculation
         const tempScenario: Scenario = {
           id: 'temp',
-          username,
+          userId,
           name: body.name.trim(),
           isDefault: isFirstScenario,
           description: body.description?.trim(),
@@ -249,11 +249,11 @@ export async function POST(request: NextRequest) {
       projection, // Include calculated projection
     };
 
-    const scenarioId = await saveUserData(username, DATA_TYPE, scenarioData);
+    const scenarioId = await saveUserData(userId, DATA_TYPE, scenarioData);
 
     const scenario: Scenario = {
       id: scenarioId,
-      username,
+      userId,
       ...scenarioData,
     };
 

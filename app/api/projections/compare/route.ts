@@ -18,14 +18,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ProjectionComparisonResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
 
     // Parse JSON body with error handling
     let body;
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const storedProjections: StoredProjection[] = [];
 
     for (const projectionId of body.projectionIds) {
-      const projectionRecord = await getUserData(username, DATA_TYPE, projectionId);
+      const projectionRecord = await getUserData(userId, DATA_TYPE, projectionId);
 
       if (!projectionRecord) {
         return NextResponse.json<ProjectionComparisonResponse>(
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
       storedProjections.push({
         id: projectionId,
-        username,
+        userId,
         scenarioId: projectionRecord.data.scenarioId,
         scenarioName: projectionRecord.data.scenarioName,
         calculatedAt: projectionRecord.data.calculatedAt,

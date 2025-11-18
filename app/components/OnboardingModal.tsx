@@ -96,7 +96,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
           Welcome to ThriveCalc!
         </h2>
         <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-          Let's get started by learning a bit about you.
+          Let&apos;s get started by learning a bit about you.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">

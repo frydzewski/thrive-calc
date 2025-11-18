@@ -27,15 +27,15 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
-    const profileRecord = await getUserData(username, 'user-profile', PROFILE_RECORD_ID);
+    const userId = session.user.id;
+    const profileRecord = await getUserData(userId, 'user-profile', PROFILE_RECORD_ID);
 
     if (!profileRecord) {
       return NextResponse.json<ProfileResponse>(
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     const profile: UserProfile = {
-      username,
+      userId,
       firstname: profileRecord.data.firstname,
       dateOfBirth: profileRecord.data.dateOfBirth,
       maritalStatus: profileRecord.data.maritalStatus,
@@ -76,14 +76,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const body = await request.json();
     const { firstname, dateOfBirth, maritalStatus, numberOfDependents } = body;
 
@@ -133,10 +133,10 @@ export async function POST(request: NextRequest) {
       onboardingComplete: true,
     };
 
-    await saveUserData(username, 'user-profile', profileData, PROFILE_RECORD_ID);
+    await saveUserData(userId, 'user-profile', profileData, PROFILE_RECORD_ID);
 
     const profile: UserProfile = {
-      username,
+      userId,
       firstname: profileData.firstname,
       dateOfBirth: profileData.dateOfBirth,
       maritalStatus: profileData.maritalStatus,
@@ -165,18 +165,18 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const body = await request.json();
 
     // Get existing profile
-    const existingRecord = await getUserData(username, 'user-profile', PROFILE_RECORD_ID);
+    const existingRecord = await getUserData(userId, 'user-profile', PROFILE_RECORD_ID);
 
     if (!existingRecord) {
       return NextResponse.json<ProfileResponse>(
@@ -241,10 +241,10 @@ export async function PUT(request: NextRequest) {
       ...updates,
     };
 
-    await saveUserData(username, 'user-profile', profileData, PROFILE_RECORD_ID);
+    await saveUserData(userId, 'user-profile', profileData, PROFILE_RECORD_ID);
 
     const profile: UserProfile = {
-      username,
+      userId,
       firstname: profileData.firstname,
       dateOfBirth: profileData.dateOfBirth,
       maritalStatus: profileData.maritalStatus,

@@ -27,14 +27,14 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<StoredProjectionResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id: scenarioId } = await params;
 
     // Validate UUID format for ID
@@ -48,7 +48,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
 
     // Get the scenario
-    const scenarioRecord = await getUserData(username, SCENARIO_DATA_TYPE, scenarioId);
+    const scenarioRecord = await getUserData(userId, SCENARIO_DATA_TYPE, scenarioId);
 
     if (!scenarioRecord) {
       return NextResponse.json<StoredProjectionResponse>(
@@ -59,7 +59,7 @@ export async function POST(
 
     const scenario: Scenario = {
       id: scenarioId,
-      username,
+      userId,
       name: scenarioRecord.data.name,
       isDefault: scenarioRecord.data.isDefault || false,
       description: scenarioRecord.data.description,
@@ -76,7 +76,7 @@ export async function POST(
     };
 
     // Get the user profile
-    const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
+    const profileRecord = await getUserData(userId, PROFILE_DATA_TYPE, 'profile');
 
     if (!profileRecord) {
       return NextResponse.json<StoredProjectionResponse>(
@@ -86,7 +86,7 @@ export async function POST(
     }
 
     const userProfile: UserProfile = {
-      username,
+      userId,
       firstname: profileRecord.data.firstname,
       dateOfBirth: profileRecord.data.dateOfBirth,
       maritalStatus: profileRecord.data.maritalStatus,
@@ -97,11 +97,11 @@ export async function POST(
     };
 
     // Get user's accounts
-    const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
+    const accountRecords = await listUserData(userId, ACCOUNT_DATA_TYPE);
 
     const accounts: Account[] = accountRecords.map((record) => ({
       id: record.recordId,
-      username,
+      userId,
       accountType: record.data.accountType,
       accountName: record.data.accountName,
       institution: record.data.institution,
@@ -163,11 +163,11 @@ export async function POST(
     };
 
     const projectionId = uuidv4();
-    await saveUserData(username, PROJECTION_DATA_TYPE, projectionData, projectionId);
+    await saveUserData(userId, PROJECTION_DATA_TYPE, projectionData, projectionId);
 
     const storedProjection = {
       id: projectionId,
-      username,
+      userId,
       ...projectionData,
       createdAt: now,
       updatedAt: now,

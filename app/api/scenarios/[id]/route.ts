@@ -40,14 +40,14 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ScenarioResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Validate UUID format for ID
@@ -58,7 +58,7 @@ export async function GET(
       );
     }
 
-    const scenarioRecord = await getUserData(username, DATA_TYPE, id);
+    const scenarioRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!scenarioRecord) {
       return NextResponse.json<ScenarioResponse>(
@@ -69,7 +69,7 @@ export async function GET(
 
     const scenario: Scenario = {
       id,
-      username,
+      userId,
       name: scenarioRecord.data.name,
       isDefault: scenarioRecord.data.isDefault || false,
       description: scenarioRecord.data.description,
@@ -109,14 +109,14 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ScenarioResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Validate UUID format for ID
@@ -139,7 +139,7 @@ export async function PUT(
     }
 
     // Get existing scenario
-    const existingRecord = await getUserData(username, DATA_TYPE, id);
+    const existingRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!existingRecord) {
       return NextResponse.json<ScenarioResponse>(
@@ -165,7 +165,7 @@ export async function PUT(
 
       // Check if name is being changed to one that already exists
       if (updates.name !== existingRecord.data.name) {
-        const existingScenarios = await listUserData(username, DATA_TYPE);
+        const existingScenarios = await listUserData(userId, DATA_TYPE);
         const nameExists = existingScenarios.some(
           (record) => record.recordId !== id && record.data.name === updates.name
         );
@@ -245,11 +245,11 @@ export async function PUT(
     if (body.isDefault !== undefined) {
       // If setting this scenario as default, unset any other default
       if (body.isDefault === true && !existingRecord.data.isDefault) {
-        const allScenarios = await listUserData(username, DATA_TYPE);
+        const allScenarios = await listUserData(userId, DATA_TYPE);
         for (const scenario of allScenarios) {
           if (scenario.data.isDefault && scenario.recordId !== id) {
             await saveUserData(
-              username,
+              userId,
               DATA_TYPE,
               {
                 ...scenario.data,
@@ -282,13 +282,13 @@ export async function PUT(
       body.inflationRate !== undefined
     ) {
       try {
-        const profileRecord = await getUserData(username, PROFILE_DATA_TYPE, 'profile');
-        const accountRecords = await listUserData(username, ACCOUNT_DATA_TYPE);
+        const profileRecord = await getUserData(userId, PROFILE_DATA_TYPE, 'profile');
+        const accountRecords = await listUserData(userId, ACCOUNT_DATA_TYPE);
 
         if (profileRecord?.data) {
           // Build user profile from stored data
           const userProfile: UserProfile = {
-            username,
+            userId,
             firstname: profileRecord.data.firstname,
             dateOfBirth: profileRecord.data.dateOfBirth,
             maritalStatus: profileRecord.data.maritalStatus || 'single',
@@ -299,7 +299,7 @@ export async function PUT(
           // Aggregate user's accounts by type
           const accounts: Account[] = accountRecords.map((record) => ({
             id: record.recordId,
-            username,
+            userId,
             accountType: record.data.accountType,
             accountName: record.data.accountName,
             institution: record.data.institution,
@@ -314,7 +314,7 @@ export async function PUT(
           // Create temporary scenario with updated assumptions
           const tempScenario: Scenario = {
             id,
-            username,
+            userId,
             name: scenarioData.name,
             isDefault: scenarioData.isDefault || false,
             description: scenarioData.description,
@@ -352,11 +352,11 @@ export async function PUT(
       projection, // Include recalculated or existing projection
     };
 
-    await saveUserData(username, DATA_TYPE, updatedScenarioData, id);
+    await saveUserData(userId, DATA_TYPE, updatedScenarioData, id);
 
     const scenario: Scenario = {
       id,
-      username,
+      userId,
       name: updatedScenarioData.name,
       isDefault: updatedScenarioData.isDefault || false,
       description: updatedScenarioData.description,
@@ -394,14 +394,14 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<ScenarioResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const { id } = await params;
 
     // Validate UUID format for ID
@@ -413,7 +413,7 @@ export async function DELETE(
     }
 
     // Verify scenario exists
-    const existingRecord = await getUserData(username, DATA_TYPE, id);
+    const existingRecord = await getUserData(userId, DATA_TYPE, id);
 
     if (!existingRecord) {
       return NextResponse.json<ScenarioResponse>(
@@ -423,7 +423,7 @@ export async function DELETE(
     }
 
     // Prevent deletion if it's the only scenario
-    const allScenarios = await listUserData(username, DATA_TYPE);
+    const allScenarios = await listUserData(userId, DATA_TYPE);
     if (allScenarios.length === 1) {
       return NextResponse.json<ScenarioResponse>(
         { success: false, error: 'Cannot delete the only scenario' },
@@ -443,7 +443,7 @@ export async function DELETE(
         );
         const newDefault = otherScenarios[0];
         await saveUserData(
-          username,
+          userId,
           DATA_TYPE,
           {
             ...newDefault.data,
@@ -454,7 +454,7 @@ export async function DELETE(
       }
     }
 
-    await deleteUserData(username, DATA_TYPE, id);
+    await deleteUserData(userId, DATA_TYPE, id);
 
     return NextResponse.json<ScenarioResponse>(
       { success: true },

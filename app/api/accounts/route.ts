@@ -96,21 +96,21 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<AccountsListResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
 
     // Query all accounts for this user
-    const accountRecords = await queryUserData(username, DATA_TYPE);
+    const accountRecords = await queryUserData(userId, DATA_TYPE);
 
     const accounts: Account[] = accountRecords.map((record) => ({
       id: record.recordId,
-      username,
+      userId,
       accountType: record.data.accountType,
       accountName: record.data.accountName,
       institution: record.data.institution,
@@ -148,14 +148,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<AccountResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
     const body = await request.json();
 
     // Validate
@@ -180,11 +180,11 @@ export async function POST(request: NextRequest) {
       notes: body.notes?.trim() || undefined,
     };
 
-    await saveUserData(username, DATA_TYPE, accountData, accountId);
+    await saveUserData(userId, DATA_TYPE, accountData, accountId);
 
     const account: Account = {
       id: accountId,
-      username,
+      userId,
       ...accountData,
     };
 

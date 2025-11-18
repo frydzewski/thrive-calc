@@ -18,14 +18,14 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json<StoredProjectionsListResponse>(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const username = session.user.email;
+    const userId = session.user.id;
 
     // Get optional scenarioId filter from query params
     const { searchParams } = new URL(request.url);
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const projectionRecords = await listUserData(username, DATA_TYPE);
+    const projectionRecords = await listUserData(userId, DATA_TYPE);
 
     let storedProjections: StoredProjection[] = projectionRecords.map(
       (record) => ({
         id: record.recordId,
-        username,
+        userId,
         scenarioId: record.data.scenarioId,
         scenarioName: record.data.scenarioName,
         calculatedAt: record.data.calculatedAt,

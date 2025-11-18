@@ -1,0 +1,9 @@
+node_modules
+.next
+cdk.out
+coverage
+dist
+build
+*.config.js
+*.config.ts
+.swissarmyhammer
