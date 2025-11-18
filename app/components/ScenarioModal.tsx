@@ -9,6 +9,7 @@ import {
   CreateScenarioRequest
 } from '../types/scenarios';
 import { AccountType } from '../types/accounts';
+import { Mortgage } from '../types/mortgages';
 
 interface ScenarioModalProps {
   scenario: Scenario | null;
@@ -20,6 +21,10 @@ interface LumpSumEventForm extends Omit<LumpSumEvent, 'id'> {
 }
 
 interface AssumptionBucketForm extends Omit<AssumptionBucket, 'id'> {
+  tempId: string;
+}
+
+interface MortgageForm extends Omit<Mortgage, 'id'> {
   tempId: string;
 }
 
@@ -35,10 +40,11 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
   const [inflationRate, setInflationRate] = useState<number | undefined>(scenario?.inflationRate ?? 2.5);
   const [buckets, setBuckets] = useState<AssumptionBucketForm[]>([]);
   const [lumpSumEvents, setLumpSumEvents] = useState<LumpSumEventForm[]>([]);
+  const [mortgages, setMortgages] = useState<MortgageForm[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize buckets and events from scenario
+  // Initialize buckets, events, and mortgages from scenario
   useEffect(() => {
     if (scenario) {
       setBuckets(
@@ -51,6 +57,12 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
         scenario.lumpSumEvents.map((event) => ({
           ...event,
           tempId: event.id,
+        }))
+      );
+      setMortgages(
+        (scenario.mortgages || []).map((mortgage) => ({
+          ...mortgage,
+          tempId: mortgage.id,
         }))
       );
     } else {
@@ -68,6 +80,7 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
         },
       ]);
       setLumpSumEvents([]);
+      setMortgages([]);
     }
   }, [scenario]);
 
@@ -205,6 +218,43 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
     );
   };
 
+  // Add mortgage
+  const handleAddMortgage = () => {
+    const currentYear = new Date().getFullYear();
+    setMortgages([
+      ...mortgages,
+      {
+        tempId: crypto.randomUUID(),
+        name: '',
+        startDate: `${currentYear}-01-01`,
+        loanAmount: 0,
+        termYears: 30,
+        interestRate: 0,
+        monthlyEscrow: 0,
+        additionalMonthlyPayment: 0,
+        description: '',
+      },
+    ]);
+  };
+
+  // Remove mortgage
+  const handleRemoveMortgage = (tempId: string) => {
+    setMortgages(mortgages.filter((m) => m.tempId !== tempId));
+  };
+
+  // Update mortgage field
+  const updateMortgage = (
+    tempId: string,
+    field: keyof Omit<Mortgage, 'id'>,
+    value: any
+  ) => {
+    setMortgages(
+      mortgages.map((mortgage) =>
+        mortgage.tempId === tempId ? { ...mortgage, [field]: value } : mortgage
+      )
+    );
+  };
+
   const validateForm = (): string | null => {
     if (!name.trim()) {
       return 'Scenario name is required';
@@ -233,6 +283,26 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
       }
       if (event.amount <= 0) {
         return `Lump sum event ${i + 1}: Amount must be greater than 0`;
+      }
+    }
+
+    // Validate mortgages
+    for (let i = 0; i < mortgages.length; i++) {
+      const mortgage = mortgages[i];
+      if (!mortgage.name.trim()) {
+        return `Mortgage ${i + 1}: Name is required`;
+      }
+      if (mortgage.loanAmount <= 0) {
+        return `Mortgage ${i + 1}: Loan amount must be greater than 0`;
+      }
+      if (mortgage.interestRate < 0) {
+        return `Mortgage ${i + 1}: Interest rate must be non-negative`;
+      }
+      if (mortgage.termYears <= 0) {
+        return `Mortgage ${i + 1}: Term must be greater than 0`;
+      }
+      if (mortgage.monthlyEscrow < 0) {
+        return `Mortgage ${i + 1}: Monthly escrow must be non-negative`;
       }
     }
 
@@ -265,6 +335,7 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
         inflationRate,
         assumptionBuckets: buckets.map(({ tempId, ...bucket }) => bucket),
         lumpSumEvents: lumpSumEvents.map(({ tempId, ...event }) => event),
+        mortgages: mortgages.map(({ tempId, ...mortgage }) => mortgage),
       };
 
       const response = await fetch(url, {
@@ -734,6 +805,155 @@ export default function ScenarioModal({ scenario, onClose }: ScenarioModalProps)
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400 italic">
                 No lump sum events. Click "Add Event" to add one-time income or expenses.
+              </p>
+            )}
+          </div>
+
+          {/* Mortgages */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                Mortgages
+              </h3>
+              <button
+                type="button"
+                onClick={handleAddMortgage}
+                disabled={isLoading}
+                className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors disabled:opacity-50"
+              >
+                + Add Mortgage
+              </button>
+            </div>
+
+            {mortgages.length > 0 ? (
+              <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-zinc-50 dark:bg-zinc-800">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Loan Amount
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Rate (%)
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Term (Yrs)
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Start Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Escrow
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                    {mortgages.map((mortgage) => (
+                      <tr key={mortgage.tempId}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            value={mortgage.name}
+                            onChange={(e) =>
+                              updateMortgage(mortgage.tempId, 'name', e.target.value)
+                            }
+                            className="w-full px-2 py-1 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white dark:bg-zinc-800 text-sm"
+                            placeholder="e.g., Primary Home"
+                            disabled={isLoading}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <span className="text-zinc-500 dark:text-zinc-400 mr-1">$</span>
+                            <input
+                              type="number"
+                              value={mortgage.loanAmount}
+                              onChange={(e) =>
+                                updateMortgage(mortgage.tempId, 'loanAmount', Number(e.target.value))
+                              }
+                              className="w-32 px-2 py-1 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white dark:bg-zinc-800 text-sm"
+                              min="0"
+                              disabled={isLoading}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            value={mortgage.interestRate}
+                            onChange={(e) =>
+                              updateMortgage(mortgage.tempId, 'interestRate', Number(e.target.value))
+                            }
+                            className="w-20 px-2 py-1 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white dark:bg-zinc-800 text-sm"
+                            min="0"
+                            max="30"
+                            step="0.1"
+                            disabled={isLoading}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            value={mortgage.termYears}
+                            onChange={(e) =>
+                              updateMortgage(mortgage.tempId, 'termYears', Number(e.target.value))
+                            }
+                            className="w-16 px-2 py-1 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white dark:bg-zinc-800 text-sm"
+                            min="1"
+                            max="50"
+                            disabled={isLoading}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="date"
+                            value={mortgage.startDate}
+                            onChange={(e) =>
+                              updateMortgage(mortgage.tempId, 'startDate', e.target.value)
+                            }
+                            className="w-36 px-2 py-1 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white dark:bg-zinc-800 text-sm"
+                            disabled={isLoading}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <span className="text-zinc-500 dark:text-zinc-400 mr-1">$</span>
+                            <input
+                              type="number"
+                              value={mortgage.monthlyEscrow}
+                              onChange={(e) =>
+                                updateMortgage(mortgage.tempId, 'monthlyEscrow', Number(e.target.value))
+                              }
+                              className="w-24 px-2 py-1 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white dark:bg-zinc-800 text-sm"
+                              min="0"
+                              disabled={isLoading}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMortgage(mortgage.tempId)}
+                            disabled={isLoading}
+                            className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 italic">
+                No mortgages. Click "Add Mortgage" to include mortgage payments in your projection.
               </p>
             )}
           </div>
