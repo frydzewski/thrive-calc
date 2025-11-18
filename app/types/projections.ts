@@ -13,7 +13,9 @@ export interface AnnualProjection {
     socialSecurity: number; // Inflated
     lumpSum: number; // NOT inflated (actual dollars)
     investmentGains: number;
-    total: number;
+    reported: number; // employment + socialSecurity + lumpSum (reported income only)
+    withdrawals: number; // Amount withdrawn from accounts to cover expenses
+    total: number; // Gross Income = reported + withdrawals
   };
 
   // Spending (inflated to year's dollars)
@@ -471,14 +473,17 @@ export function calculateScenarioProjection(
     }
 
     // === FINAL INCOME CALCULATION ===
-    // Total income MUST equal total spending for a balanced projection
+    // Reported income = only actual income sources (NOT withdrawals or investment gains)
+    const reportedIncome = employmentIncome + socialSecurityIncome + lumpSumIncome;
+
+    // Total income (Gross Income) = reported income + withdrawals
     // Withdrawals from accounts count as income (realizing saved assets)
-    const totalIncome = preWithdrawalIncome + totalWithdrawals;
-    
+    const totalIncome = reportedIncome + totalWithdrawals;
+
     // Income after contributions: contributions come OUT of income first
     // This shows what's available to spend after saving/investing
     const incomeAfterContributions = totalIncome - totalContributions;
-    
+
     // Net income: what's left after spending (should be ~0 for balanced projections)
     const netIncome = incomeAfterContributions - totalSpending;
 
@@ -491,7 +496,9 @@ export function calculateScenarioProjection(
         socialSecurity: socialSecurityIncome,
         lumpSum: lumpSumIncome,
         investmentGains: totalGains,
-        total: totalIncome,
+        reported: reportedIncome, // Only reported income (employment + SS + lump sums)
+        withdrawals: totalWithdrawals, // Amount withdrawn from accounts
+        total: totalIncome, // Gross Income = reported + withdrawals
       },
       spending: {
         living: livingSpending,
