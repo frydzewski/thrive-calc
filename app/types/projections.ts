@@ -257,11 +257,8 @@ export function calculateScenarioProjection(
 
     // === INCOME (apply inflation to assumptions) ===
     // Employment income grows at 2% annually (separate from general inflation)
-    // If bucket specifies $0 income (retirement), respect that exactly
-    const employmentIncome =
-      age < (scenario.retirementAge || 999)
-        ? (assumptions.annualIncome || 0) * incomeInflationFactor
-        : 0;
+    // Always respect bucket-specific annualIncome value (including $0 for retirement)
+    const employmentIncome = (assumptions.annualIncome || 0) * incomeInflationFactor;
 
     // Social Security is scenario-level and applies uniformly across all years
     const socialSecurityIncome =
