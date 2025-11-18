@@ -346,26 +346,66 @@ export function calculateScenarioProjection(
       accountBalances[accountType] = beginningBalance + contribution + gain;
     }
 
+    // === REQUIRED MINIMUM DISTRIBUTIONS (RMDs) ===
+    // Starting at age 73, traditional IRAs and 401(k)s require minimum withdrawals
+    // Using simplified IRS Uniform Lifetime Table factors
+    let rmdAmount = 0;
+    if (age >= 73) {
+      // Simplified RMD calculation using life expectancy factors
+      // IRS Uniform Lifetime Table (approximate values)
+      const lifeExpectancyFactor = age === 73 ? 26.5 :
+                                   age === 74 ? 25.5 :
+                                   age === 75 ? 24.6 :
+                                   age === 80 ? 20.2 :
+                                   age === 85 ? 15.5 :
+                                   age === 90 ? 11.5 :
+                                   age === 95 ? 8.1 :
+                                   age >= 100 ? 5.0 :
+                                   // Linear interpolation for ages in between
+                                   27.4 - (age - 72) * 0.5;
+
+      // Calculate RMD from traditional IRA and 401k (after growth, before withdrawals)
+      const traditionalIraBalance = accountBalances['traditional-ira'] || 0;
+      const k401Balance = accountBalances['401k'] || 0;
+      const totalRetirementBalance = traditionalIraBalance + k401Balance;
+
+      if (totalRetirementBalance > 0) {
+        rmdAmount = totalRetirementBalance / lifeExpectancyFactor;
+
+        // Withdraw RMD proportionally from traditional IRA and 401k
+        if (traditionalIraBalance > 0) {
+          const iraRmd = rmdAmount * (traditionalIraBalance / totalRetirementBalance);
+          accountBalances['traditional-ira'] = Math.max(0, traditionalIraBalance - iraRmd);
+        }
+        if (k401Balance > 0) {
+          const k401Rmd = rmdAmount * (k401Balance / totalRetirementBalance);
+          accountBalances['401k'] = Math.max(0, k401Balance - k401Rmd);
+        }
+      }
+    }
+
     // === NET INCOME ===
+    // RMDs are forced withdrawals that become available income
     const totalIncome =
-      employmentIncome + socialSecurityIncome + lumpSumIncome + totalGains;
+      employmentIncome + socialSecurityIncome + lumpSumIncome + totalGains + rmdAmount;
     const totalSpending =
       livingSpending + travelSpending + healthcareSpending + lumpSumExpenses + totalMortgagePayments;
     const netIncome = totalIncome - totalSpending - totalContributions;
 
-    // Adjust cash accounts for net income
+    // Adjust accounts for net income with proper cash flow hierarchy
     // IMPORTANT: Net income already accounts for contributions, so we don't double-count
     if (netIncome < 0) {
       // Need to withdraw from accounts to cover deficit
+      // Withdrawal priority: 1) Checking, 2) Savings, 3) Brokerage, 4) Retirement accounts
       let deficit = Math.abs(netIncome);
 
-      // First withdraw from checking
+      // 1. First withdraw from checking
       const checkingAvailable = accountBalances['checking'] || 0;
       const checkingWithdrawal = Math.min(deficit, checkingAvailable);
       accountBalances['checking'] = checkingAvailable - checkingWithdrawal;
       deficit -= checkingWithdrawal;
 
-      // Then withdraw from savings if needed
+      // 2. Then withdraw from savings if needed
       if (deficit > 0) {
         const savingsAvailable = accountBalances['savings'] || 0;
         const savingsWithdrawal = Math.min(deficit, savingsAvailable);
@@ -373,12 +413,45 @@ export function calculateScenarioProjection(
         deficit -= savingsWithdrawal;
       }
 
-      // If still deficit, accounts go negative (which is realistic for projections)
+      // 3. Then withdraw from brokerage if needed
+      if (deficit > 0) {
+        const brokerageAvailable = accountBalances['brokerage'] || 0;
+        const brokerageWithdrawal = Math.min(deficit, brokerageAvailable);
+        accountBalances['brokerage'] = brokerageAvailable - brokerageWithdrawal;
+        deficit -= brokerageWithdrawal;
+      }
+
+      // 4. Then withdraw from traditional IRA if needed
+      if (deficit > 0) {
+        const iraAvailable = accountBalances['traditional-ira'] || 0;
+        const iraWithdrawal = Math.min(deficit, iraAvailable);
+        accountBalances['traditional-ira'] = iraAvailable - iraWithdrawal;
+        deficit -= iraWithdrawal;
+      }
+
+      // 5. Then withdraw from 401k if needed
+      if (deficit > 0) {
+        const k401Available = accountBalances['401k'] || 0;
+        const k401Withdrawal = Math.min(deficit, k401Available);
+        accountBalances['401k'] = k401Available - k401Withdrawal;
+        deficit -= k401Withdrawal;
+      }
+
+      // 6. Finally withdraw from Roth IRA if needed (last resort, tax-free growth)
+      if (deficit > 0) {
+        const rothAvailable = accountBalances['roth-ira'] || 0;
+        const rothWithdrawal = Math.min(deficit, rothAvailable);
+        accountBalances['roth-ira'] = rothAvailable - rothWithdrawal;
+        deficit -= rothWithdrawal;
+      }
+
+      // If still deficit after all withdrawals, checking goes negative
+      // (represents debt/overdraft - realistic for worst-case projections)
       if (deficit > 0) {
         accountBalances['checking'] -= deficit;
       }
     } else {
-      // Add surplus to checking
+      // Add surplus to checking account
       accountBalances['checking'] = (accountBalances['checking'] || 0) + netIncome;
     }
 
