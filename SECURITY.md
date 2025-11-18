@@ -17,7 +17,7 @@ The application implements comprehensive HTTP security headers to protect agains
 - `style-src 'self' 'unsafe-inline'` - Required for Tailwind CSS
 - `img-src 'self' data: https:` - Allow images from same origin, data URLs, and HTTPS sources
 - `font-src 'self' data:` - Allow fonts from same origin and data URLs
-- `connect-src 'self' https://*.amazonaws.com` - Allow API calls to AWS services
+- `connect-src 'self' https://*.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com` - Allow API calls to AWS services and explicit Cognito OAuth redirects
 - `frame-ancestors 'none'` - Prevent embedding in iframes (clickjacking protection)
 - `base-uri 'self'` - Restrict base URL to prevent base tag injection
 - `form-action 'self'` - Only allow form submissions to same origin

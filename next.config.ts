@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.amazonaws.com", // Allow AWS API calls
+              "connect-src 'self' https://*.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com", // Allow AWS API calls and Cognito OAuth
               "frame-ancestors 'none'", // Prevent embedding in iframes
               "base-uri 'self'",
               "form-action 'self'",
