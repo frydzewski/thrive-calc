@@ -1,0 +1,715 @@
+/**
+ * Tests for projection calculations
+ *
+ * This file tests the core retirement projection engine that models year-by-year
+ * financial scenarios including income, spending, investment returns, and account balances.
+ */
+
+import {
+  calculateAge,
+  calculateScenarioProjection,
+  calculateProjectionSummary,
+  AnnualProjection,
+} from '../projections';
+import { Scenario } from '../scenarios';
+import { UserProfile } from '../profile';
+import { Account } from '../accounts';
+
+describe('Projection Calculations', () => {
+  // Test data fixtures
+  const sampleProfile: UserProfile = {
+    username: 'test@example.com',
+    firstname: 'Test',
+    dateOfBirth: '1985-06-15',
+    maritalStatus: 'single',
+    numberOfDependents: 0,
+    onboardingComplete: true,
+  };
+
+  const sampleAccounts: Account[] = [
+    {
+      id: 'acc-1',
+      username: 'test@example.com',
+      accountType: '401k',
+      accountName: '401k - Employer',
+      institution: 'Vanguard',
+      balance: 100000,
+      asOfDate: '2024-01-01',
+      status: 'active',
+    },
+    {
+      id: 'acc-2',
+      username: 'test@example.com',
+      accountType: 'roth-ira',
+      accountName: 'Roth IRA',
+      institution: 'Fidelity',
+      balance: 50000,
+      asOfDate: '2024-01-01',
+      status: 'active',
+    },
+    {
+      id: 'acc-3',
+      username: 'test@example.com',
+      accountType: 'savings',
+      accountName: 'Emergency Fund',
+      institution: 'Chase',
+      balance: 30000,
+      asOfDate: '2024-01-01',
+      status: 'active',
+    },
+    {
+      id: 'acc-4',
+      username: 'test@example.com',
+      accountType: 'checking',
+      accountName: 'Checking',
+      institution: 'Chase',
+      balance: 10000,
+      asOfDate: '2024-01-01',
+      status: 'active',
+    },
+  ];
+
+  const sampleScenario: Scenario = {
+    id: 'scenario-1',
+    username: 'test@example.com',
+    name: 'Base Case',
+    isDefault: true,
+    retirementAge: 65,
+    socialSecurityAge: 67,
+    socialSecurityIncome: 30000,
+    investmentReturnRate: 7,
+    inflationRate: 2.5,
+    assumptionBuckets: [
+      {
+        id: 'bucket-1',
+        name: 'Working Years',
+        startAge: 30,
+        endAge: 64,
+        assumptions: {
+          annualIncome: 100000,
+          annualSpending: 60000,
+          annualTravelBudget: 10000,
+          annualHealthcareCosts: 5000,
+          contributions: {
+            '401k': 20000,
+            'traditional-ira': 0,
+            'roth-ira': 6500,
+            'brokerage': 5000,
+            'savings': 0,
+            'checking': 0,
+          },
+        },
+      },
+      {
+        id: 'bucket-2',
+        name: 'Retirement',
+        startAge: 65,
+        endAge: 95,
+        assumptions: {
+          annualIncome: 0,
+          annualSpending: 50000,
+          annualTravelBudget: 15000,
+          annualHealthcareCosts: 10000,
+          contributions: {
+            '401k': 0,
+            'traditional-ira': 0,
+            'roth-ira': 0,
+            'brokerage': 0,
+            'savings': 0,
+            'checking': 0,
+          },
+        },
+      },
+    ],
+    lumpSumEvents: [],
+    mortgages: [],
+  };
+
+  describe('calculateAge', () => {
+    it('should calculate correct age for someone born in June', () => {
+      // Mock current date to be January 2024
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-01-15'));
+
+      const age = calculateAge('1985-06-15');
+      expect(age).toBe(38); // Birthday hasn't happened yet in January
+
+      jest.useRealTimers();
+    });
+
+    it('should calculate correct age after birthday', () => {
+      // Mock current date to be July 2024 (after June 15 birthday)
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-07-15'));
+
+      const age = calculateAge('1985-06-15');
+      expect(age).toBe(39); // Birthday already happened
+
+      jest.useRealTimers();
+    });
+
+    it('should handle leap year birthdays', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-03-01'));
+
+      const age = calculateAge('2000-02-29');
+      expect(age).toBe(24);
+
+      jest.useRealTimers();
+    });
+  });
+
+  describe('calculateScenarioProjection', () => {
+    beforeEach(() => {
+      // Mock current date to be January 2024 for consistent testing
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-01-15'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should throw error if scenario has no assumption buckets', () => {
+      const invalidScenario: Scenario = {
+        ...sampleScenario,
+        assumptionBuckets: [],
+      };
+
+      expect(() =>
+        calculateScenarioProjection(invalidScenario, sampleProfile, sampleAccounts, 2024, 2030)
+      ).toThrow('Scenario must have at least one assumption bucket');
+    });
+
+    it('should throw error if start year is after end year', () => {
+      expect(() =>
+        calculateScenarioProjection(sampleScenario, sampleProfile, sampleAccounts, 2030, 2024)
+      ).toThrow('Start year must be less than or equal to end year');
+    });
+
+    it('should throw error if projection period exceeds 100 years', () => {
+      expect(() =>
+        calculateScenarioProjection(sampleScenario, sampleProfile, sampleAccounts, 2024, 2125)
+      ).toThrow('Projection period cannot exceed 100 years');
+    });
+
+    it('should calculate basic projection for working years', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2026 // Just 3 years for simple test
+      );
+
+      expect(projection.scenarioId).toBe('scenario-1');
+      expect(projection.scenarioName).toBe('Base Case');
+      expect(projection.years.length).toBe(3);
+
+      // Check first year (2024, age 38)
+      const year1 = projection.years[0];
+      expect(year1.year).toBe(2024);
+      expect(year1.age).toBe(38);
+
+      // Income should include employment income (inflated) and investment gains
+      expect(year1.income.employment).toBeGreaterThan(100000); // Inflated from base
+      expect(year1.income.socialSecurity).toBe(0); // Not old enough yet
+      expect(year1.income.investmentGains).toBeGreaterThan(0); // 7% on starting balance
+
+      // Spending should be inflated
+      expect(year1.spending.living).toBeGreaterThan(60000);
+      expect(year1.spending.travel).toBeGreaterThan(10000);
+      expect(year1.spending.healthcare).toBeGreaterThan(5000);
+
+      // Contributions should be inflated
+      expect(year1.contributions.total).toBeGreaterThan(31500); // Sum of all contributions inflated
+
+      // Account balances should increase
+      expect(year1.accountBalances.total).toBeGreaterThan(190000); // Starting was 190k
+    });
+
+    it('should handle retirement transition correctly', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2062 // Goes through retirement at age 65
+      );
+
+      // Find year just before retirement (age 64, year 2050)
+      const workingYear = projection.years.find((y) => y.age === 64);
+      expect(workingYear).toBeDefined();
+      expect(workingYear!.income.employment).toBeGreaterThan(0);
+
+      // Find first retirement year (age 65, year 2051)
+      const retirementYear = projection.years.find((y) => y.age === 65);
+      expect(retirementYear).toBeDefined();
+      expect(retirementYear!.income.employment).toBe(0); // No more employment income
+      expect(retirementYear!.contributions.total).toBe(0); // No more contributions
+    });
+
+    it('should handle Social Security correctly', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2062 // Includes Social Security age 67
+      );
+
+      // Year before Social Security (age 66, year 2052)
+      const beforeSS = projection.years.find((y) => y.age === 66);
+      expect(beforeSS).toBeDefined();
+      expect(beforeSS!.income.socialSecurity).toBe(0);
+
+      // First Social Security year (age 67, year 2053)
+      const firstSS = projection.years.find((y) => y.age === 67);
+      expect(firstSS).toBeDefined();
+      expect(firstSS!.income.socialSecurity).toBeGreaterThan(30000); // Inflated
+    });
+
+    it('should handle lump sum events correctly', () => {
+      const scenarioWithLumpSum: Scenario = {
+        ...sampleScenario,
+        lumpSumEvents: [
+          {
+            id: 'event-1',
+            name: 'Home Sale',
+            type: 'income',
+            age: 40,
+            amount: 200000,
+          },
+          {
+            id: 'event-2',
+            name: 'Car Purchase',
+            type: 'expense',
+            age: 42,
+            amount: 50000,
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        scenarioWithLumpSum,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2030
+      );
+
+      // Year with lump sum income (age 40, year 2026)
+      const incomeYear = projection.years.find((y) => y.age === 40);
+      expect(incomeYear).toBeDefined();
+      expect(incomeYear!.income.lumpSum).toBe(200000); // NOT inflated
+
+      // Year with lump sum expense (age 42, year 2028)
+      const expenseYear = projection.years.find((y) => y.age === 42);
+      expect(expenseYear).toBeDefined();
+      expect(expenseYear!.spending.lumpSum).toBe(50000); // NOT inflated
+    });
+
+    it('should aggregate accounts by type correctly', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2025
+      );
+
+      const year1 = projection.years[0];
+
+      // Starting balances
+      expect(year1.accountBalances.byAccountType['401k']).toBeGreaterThan(100000);
+      expect(year1.accountBalances.byAccountType['roth-ira']).toBeGreaterThan(50000);
+      expect(year1.accountBalances.byAccountType['savings']).toBeGreaterThan(0);
+      expect(year1.accountBalances.byAccountType['checking']).toBeGreaterThan(0);
+
+      // Total should equal sum of all types
+      const sum = Object.values(year1.accountBalances.byAccountType).reduce(
+        (a, b) => a + b,
+        0
+      );
+      expect(year1.accountBalances.total).toBeCloseTo(sum, 2);
+    });
+
+    it('should handle deficit years by withdrawing from cash accounts', () => {
+      // Create scenario with high spending and low income in retirement
+      const deficitScenario: Scenario = {
+        ...sampleScenario,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Retirement with High Spending',
+            startAge: 30,
+            endAge: 95,
+            assumptions: {
+              annualIncome: 0, // No income
+              annualSpending: 100000, // High spending
+              annualTravelBudget: 20000,
+              annualHealthcareCosts: 10000,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        deficitScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2026
+      );
+
+      // Should have negative net income
+      expect(projection.years[0].netIncome).toBeLessThan(0);
+
+      // Cash accounts should decrease
+      const year1Checking = projection.years[0].accountBalances.byAccountType['checking'];
+      const year2Checking = projection.years[1].accountBalances.byAccountType['checking'];
+      expect(year2Checking).toBeLessThan(year1Checking);
+    });
+
+    it('should apply inflation correctly across years', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2027
+      );
+
+      // Employment income should increase each year due to inflation
+      const year1Income = projection.years[0].income.employment;
+      const year2Income = projection.years[1].income.employment;
+      const year3Income = projection.years[2].income.employment;
+
+      expect(year2Income).toBeGreaterThan(year1Income);
+      expect(year3Income).toBeGreaterThan(year2Income);
+
+      // Calculate expected inflation factor (2.5% compounded)
+      const expectedFactor2 = Math.pow(1.025, 2);
+      expect(year2Income / year1Income).toBeCloseTo(1.025, 2);
+      expect(year3Income / year1Income).toBeCloseTo(expectedFactor2, 2);
+    });
+
+    it('should apply investment returns each year', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2026
+      );
+
+      // Each year should have investment gains
+      projection.years.forEach((year) => {
+        expect(year.income.investmentGains).toBeGreaterThan(0);
+      });
+
+      // Gains should increase as balances grow
+      const year1Gains = projection.years[0].income.investmentGains;
+      const year2Gains = projection.years[1].income.investmentGains;
+      expect(year2Gains).toBeGreaterThan(year1Gains);
+    });
+
+    it('should handle inactive accounts correctly', () => {
+      const accountsWithInactive: Account[] = [
+        ...sampleAccounts,
+        {
+          id: 'acc-5',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: 'Old 401k',
+          institution: 'Former Employer',
+          balance: 50000,
+          asOfDate: '2020-01-01',
+          status: 'inactive', // Inactive should not be included
+        },
+      ];
+
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        accountsWithInactive,
+        2024,
+        2025
+      );
+
+      // Starting total should be 190k (not 240k which would include inactive)
+      const year1Total = projection.years[0].accountBalances.total;
+      expect(year1Total).toBeGreaterThan(190000);
+      expect(year1Total).toBeLessThan(250000);
+    });
+
+    it('should include mortgage payments in spending', () => {
+      const scenarioWithMortgage: Scenario = {
+        ...sampleScenario,
+        mortgages: [
+          {
+            id: 'mort-1',
+            name: 'Primary Home',
+            startDate: '2024-01-01',
+            loanAmount: 400000,
+            termYears: 30,
+            interestRate: 6.5,
+            monthlyEscrow: 500,
+            additionalMonthlyPayment: 0,
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        scenarioWithMortgage,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2026
+      );
+
+      // Should have mortgage payments
+      const year1 = projection.years[0];
+      expect(year1.spending.mortgages).toBeGreaterThan(0);
+      expect(year1.mortgagePayments.total).toBeGreaterThan(0);
+      expect(year1.mortgagePayments.principal).toBeGreaterThan(0);
+      expect(year1.mortgagePayments.interest).toBeGreaterThan(0);
+      expect(year1.mortgagePayments.escrow).toBeGreaterThan(0);
+
+      // Mortgage payments should be included in total spending
+      expect(year1.spending.total).toBeGreaterThan(
+        year1.spending.living + year1.spending.travel + year1.spending.healthcare
+      );
+    });
+
+    it('should handle contribution allocation across account types', () => {
+      const projection = calculateScenarioProjection(
+        sampleScenario,
+        sampleProfile,
+        sampleAccounts,
+        2024,
+        2025
+      );
+
+      const year1 = projection.years[0];
+
+      // Should have contributions to specific account types
+      expect(year1.contributions.byAccountType['401k']).toBeGreaterThan(0);
+      expect(year1.contributions.byAccountType['roth-ira']).toBeGreaterThan(0);
+      expect(year1.contributions.byAccountType['brokerage']).toBeGreaterThan(0);
+
+      // Total should match sum
+      const sum = Object.values(year1.contributions.byAccountType).reduce(
+        (a, b) => a + b,
+        0
+      );
+      expect(year1.contributions.total).toBeCloseTo(sum, 2);
+    });
+  });
+
+  describe('calculateProjectionSummary', () => {
+    const sampleYears: AnnualProjection[] = [
+      {
+        year: 2024,
+        age: 38,
+        income: {
+          employment: 100000,
+          socialSecurity: 0,
+          lumpSum: 0,
+          investmentGains: 10000,
+          total: 110000,
+        },
+        spending: {
+          living: 60000,
+          travel: 10000,
+          healthcare: 5000,
+          lumpSum: 0,
+          mortgages: 0,
+          total: 75000,
+        },
+        mortgagePayments: {
+          principal: 0,
+          interest: 0,
+          escrow: 0,
+          additionalPrincipal: 0,
+          total: 0,
+          byMortgage: [],
+        },
+        contributions: {
+          total: 31500,
+          byAccountType: {
+            '401k': 20000,
+            'traditional-ira': 0,
+            'roth-ira': 6500,
+            'brokerage': 5000,
+            'savings': 0,
+            'checking': 0,
+          },
+        },
+        netIncome: 3500,
+        accountBalances: {
+          total: 200000,
+          byAccountType: {
+            '401k': 100000,
+            'traditional-ira': 0,
+            'roth-ira': 50000,
+            'brokerage': 0,
+            'savings': 30000,
+            'checking': 20000,
+          },
+        },
+      },
+      {
+        year: 2025,
+        age: 39,
+        income: {
+          employment: 102500,
+          socialSecurity: 0,
+          lumpSum: 0,
+          investmentGains: 12000,
+          total: 114500,
+        },
+        spending: {
+          living: 61500,
+          travel: 10250,
+          healthcare: 5125,
+          lumpSum: 0,
+          mortgages: 0,
+          total: 76875,
+        },
+        mortgagePayments: {
+          principal: 0,
+          interest: 0,
+          escrow: 0,
+          additionalPrincipal: 0,
+          total: 0,
+          byMortgage: [],
+        },
+        contributions: {
+          total: 32288,
+          byAccountType: {
+            '401k': 20500,
+            'traditional-ira': 0,
+            'roth-ira': 6663,
+            'brokerage': 5125,
+            'savings': 0,
+            'checking': 0,
+          },
+        },
+        netIncome: 5337,
+        accountBalances: {
+          total: 220000,
+          byAccountType: {
+            '401k': 110000,
+            'traditional-ira': 0,
+            'roth-ira': 55000,
+            'brokerage': 0,
+            'savings': 30000,
+            'checking': 25000,
+          },
+        },
+      },
+      {
+        year: 2026,
+        age: 40,
+        income: {
+          employment: 0, // Retired
+          socialSecurity: 0,
+          lumpSum: 0,
+          investmentGains: 14000,
+          total: 14000,
+        },
+        spending: {
+          living: 63075,
+          travel: 10506,
+          healthcare: 5253,
+          lumpSum: 0,
+          mortgages: 0,
+          total: 78834,
+        },
+        mortgagePayments: {
+          principal: 0,
+          interest: 0,
+          escrow: 0,
+          additionalPrincipal: 0,
+          total: 0,
+          byMortgage: [],
+        },
+        contributions: {
+          total: 0,
+          byAccountType: {
+            '401k': 0,
+            'traditional-ira': 0,
+            'roth-ira': 0,
+            'brokerage': 0,
+            'savings': 0,
+            'checking': 0,
+          },
+        },
+        netIncome: -64834, // Deficit year
+        accountBalances: {
+          total: 180000,
+          byAccountType: {
+            '401k': 110000,
+            'traditional-ira': 0,
+            'roth-ira': 55000,
+            'brokerage': 0,
+            'savings': 10000,
+            'checking': 5000,
+          },
+        },
+      },
+    ];
+
+    it('should calculate correct totals', () => {
+      const summary = calculateProjectionSummary(sampleYears, 2024, 2026);
+
+      expect(summary.startYear).toBe(2024);
+      expect(summary.endYear).toBe(2026);
+      expect(summary.totalIncome).toBe(238500); // Sum of all income.total
+      expect(summary.totalSpending).toBe(230709); // Sum of all spending.total
+      expect(summary.totalContributions).toBe(63788); // Sum of all contributions.total
+    });
+
+    it('should calculate final net worth correctly', () => {
+      const summary = calculateProjectionSummary(sampleYears, 2024, 2026);
+
+      expect(summary.finalNetWorth).toBe(180000); // Last year's total balance
+    });
+
+    it('should identify deficit years correctly', () => {
+      const summary = calculateProjectionSummary(sampleYears, 2024, 2026);
+
+      expect(summary.yearsInDeficit).toBe(1); // Only 2026 has negative net income
+      expect(summary.firstDeficitYear).toBe(2026);
+    });
+
+    it('should handle no deficit years', () => {
+      const noDeficitYears = sampleYears.slice(0, 2); // Only years with positive net income
+
+      const summary = calculateProjectionSummary(noDeficitYears, 2024, 2025);
+
+      expect(summary.yearsInDeficit).toBe(0);
+      expect(summary.firstDeficitYear).toBeUndefined();
+    });
+
+    it('should handle empty years array', () => {
+      const summary = calculateProjectionSummary([], 2024, 2026);
+
+      expect(summary.totalIncome).toBe(0);
+      expect(summary.totalSpending).toBe(0);
+      expect(summary.totalContributions).toBe(0);
+      expect(summary.finalNetWorth).toBe(0);
+      expect(summary.yearsInDeficit).toBe(0);
+      expect(summary.firstDeficitYear).toBeUndefined();
+    });
+  });
+});

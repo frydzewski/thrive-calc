@@ -25,6 +25,9 @@ const config: Config = {
     '!app/layout.tsx',
     '!app/globals.css',
   ],
+  transformIgnorePatterns: [
+    'node_modules/(?!(aws-sdk-client-mock|sinon|uuid)/)',
+  ],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
