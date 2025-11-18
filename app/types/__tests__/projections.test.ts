@@ -370,10 +370,17 @@ describe('Projection Calculations', () => {
         2026
       );
 
-      // Should have negative net income
-      expect(projection.years[0].netIncome).toBeLessThan(0);
+      // With the fix, withdrawals count as income, so net income should be 0
+      // (Total Income including withdrawals = Total Spending)
+      expect(projection.years[0].netIncome).toBe(0);
 
-      // Cash accounts should decrease
+      // Total income should equal total spending (withdrawals balance the deficit)
+      expect(projection.years[0].income.total).toBeCloseTo(projection.years[0].spending.total, 0);
+
+      // Total income should be greater than 0 (includes withdrawals)
+      expect(projection.years[0].income.total).toBeGreaterThan(0);
+
+      // Cash accounts should decrease (money was withdrawn to cover expenses)
       const year1Checking = projection.years[0].accountBalances.byAccountType['checking'];
       const year2Checking = projection.years[1].accountBalances.byAccountType['checking'];
       expect(year2Checking).toBeLessThan(year1Checking);

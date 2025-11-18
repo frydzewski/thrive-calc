@@ -385,25 +385,29 @@ export function calculateScenarioProjection(
       }
     }
 
-    // === NET INCOME ===
-    // RMDs are forced withdrawals that become available income
-    const totalIncome =
+    // === CALCULATE PRE-WITHDRAWAL INCOME AND EXPENSES ===
+    // Pre-withdrawal income includes employment, social security, investment gains, RMDs, etc.
+    // but does NOT yet include withdrawals from accounts
+    const preWithdrawalIncome =
       employmentIncome + socialSecurityIncome + lumpSumIncome + totalGains + rmdAmount;
     const totalSpending =
       livingSpending + travelSpending + healthcareSpending + lumpSumExpenses + totalMortgagePayments;
-    const netIncome = totalIncome - totalSpending - totalContributions;
+    const netBeforeWithdrawals = preWithdrawalIncome - totalSpending - totalContributions;
 
-    // Adjust accounts for net income with proper cash flow hierarchy
-    // IMPORTANT: Net income already accounts for contributions, so we don't double-count
-    if (netIncome < 0) {
+    // === HANDLE DEFICIT WITH ACCOUNT WITHDRAWALS ===
+    // Track withdrawals separately so they can be counted as income
+    let totalWithdrawals = 0;
+
+    if (netBeforeWithdrawals < 0) {
       // Need to withdraw from accounts to cover deficit
       // Withdrawal priority: 1) Checking, 2) Savings, 3) Brokerage, 4) Retirement accounts
-      let deficit = Math.abs(netIncome);
+      let deficit = Math.abs(netBeforeWithdrawals);
 
       // 1. First withdraw from checking
       const checkingAvailable = accountBalances['checking'] || 0;
       const checkingWithdrawal = Math.min(deficit, checkingAvailable);
       accountBalances['checking'] = checkingAvailable - checkingWithdrawal;
+      totalWithdrawals += checkingWithdrawal;
       deficit -= checkingWithdrawal;
 
       // 2. Then withdraw from savings if needed
@@ -411,6 +415,7 @@ export function calculateScenarioProjection(
         const savingsAvailable = accountBalances['savings'] || 0;
         const savingsWithdrawal = Math.min(deficit, savingsAvailable);
         accountBalances['savings'] = savingsAvailable - savingsWithdrawal;
+        totalWithdrawals += savingsWithdrawal;
         deficit -= savingsWithdrawal;
       }
 
@@ -419,6 +424,7 @@ export function calculateScenarioProjection(
         const brokerageAvailable = accountBalances['brokerage'] || 0;
         const brokerageWithdrawal = Math.min(deficit, brokerageAvailable);
         accountBalances['brokerage'] = brokerageAvailable - brokerageWithdrawal;
+        totalWithdrawals += brokerageWithdrawal;
         deficit -= brokerageWithdrawal;
       }
 
@@ -427,6 +433,7 @@ export function calculateScenarioProjection(
         const iraAvailable = accountBalances['traditional-ira'] || 0;
         const iraWithdrawal = Math.min(deficit, iraAvailable);
         accountBalances['traditional-ira'] = iraAvailable - iraWithdrawal;
+        totalWithdrawals += iraWithdrawal;
         deficit -= iraWithdrawal;
       }
 
@@ -435,6 +442,7 @@ export function calculateScenarioProjection(
         const k401Available = accountBalances['401k'] || 0;
         const k401Withdrawal = Math.min(deficit, k401Available);
         accountBalances['401k'] = k401Available - k401Withdrawal;
+        totalWithdrawals += k401Withdrawal;
         deficit -= k401Withdrawal;
       }
 
@@ -443,6 +451,7 @@ export function calculateScenarioProjection(
         const rothAvailable = accountBalances['roth-ira'] || 0;
         const rothWithdrawal = Math.min(deficit, rothAvailable);
         accountBalances['roth-ira'] = rothAvailable - rothWithdrawal;
+        totalWithdrawals += rothWithdrawal;
         deficit -= rothWithdrawal;
       }
 
@@ -450,11 +459,18 @@ export function calculateScenarioProjection(
       // (represents debt/overdraft - realistic for worst-case projections)
       if (deficit > 0) {
         accountBalances['checking'] -= deficit;
+        totalWithdrawals += deficit; // Count forced overdraft as withdrawal
       }
     } else {
       // Add surplus to checking account
-      accountBalances['checking'] = (accountBalances['checking'] || 0) + netIncome;
+      accountBalances['checking'] = (accountBalances['checking'] || 0) + netBeforeWithdrawals;
     }
+
+    // === FINAL INCOME CALCULATION ===
+    // Total income MUST equal total spending for a balanced projection
+    // Withdrawals from accounts count as income (realizing saved assets)
+    const totalIncome = preWithdrawalIncome + totalWithdrawals;
+    const netIncome = totalIncome - totalSpending - totalContributions;
 
     // Store yearly projection
     yearlyProjections.push({
