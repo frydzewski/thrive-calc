@@ -388,7 +388,7 @@ describe('Projection Calculations', () => {
         2027
       );
 
-      // Employment income should increase each year due to inflation
+      // Employment income should increase each year at 2% (hard-coded income inflation)
       const year1Income = projection.years[0].income.employment;
       const year2Income = projection.years[1].income.employment;
       const year3Income = projection.years[2].income.employment;
@@ -396,9 +396,9 @@ describe('Projection Calculations', () => {
       expect(year2Income).toBeGreaterThan(year1Income);
       expect(year3Income).toBeGreaterThan(year2Income);
 
-      // Calculate expected inflation factor (2.5% compounded)
-      const expectedFactor2 = Math.pow(1.025, 2);
-      expect(year2Income / year1Income).toBeCloseTo(1.025, 2);
+      // Income inflates at 2% annually (separate from scenario inflation rate)
+      const expectedFactor2 = Math.pow(1.02, 2);
+      expect(year2Income / year1Income).toBeCloseTo(1.02, 2);
       expect(year3Income / year1Income).toBeCloseTo(expectedFactor2, 2);
     });
 

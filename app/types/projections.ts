@@ -225,6 +225,10 @@ export function calculateScenarioProjection(
   // This compounds year-over-year as we move through different buckets with different rates
   let cumulativeInflationFactor = 1.0;
 
+  // Track separate income inflation factor (hard-coded at 2% annually)
+  let incomeInflationFactor = 1.0;
+  const INCOME_INFLATION_RATE = 2.0; // 2% annual income growth
+
   for (let year = startYear; year <= endYear; year++) {
     const age = currentAge + (year - currentYear);
 
@@ -248,10 +252,15 @@ export function calculateScenarioProjection(
     cumulativeInflationFactor *= (1 + yearInflationRate / 100);
     const inflationFactor = cumulativeInflationFactor;
 
+    // Apply 2% income inflation separately from general inflation
+    incomeInflationFactor *= (1 + INCOME_INFLATION_RATE / 100);
+
     // === INCOME (apply inflation to assumptions) ===
+    // Employment income grows at 2% annually (separate from general inflation)
+    // If bucket specifies $0 income (retirement), respect that exactly
     const employmentIncome =
       age < (scenario.retirementAge || 999)
-        ? (assumptions.annualIncome || 0) * inflationFactor
+        ? (assumptions.annualIncome || 0) * incomeInflationFactor
         : 0;
 
     // Social Security is scenario-level and applies uniformly across all years
