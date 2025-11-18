@@ -956,4 +956,468 @@ describe('Projection Calculations', () => {
       expect(balances['roth-ira']).toBeGreaterThanOrEqual(99000); // Allow for small withdrawals
     });
   });
+
+  describe('Required Minimum Distribution (RMD) Calculations', () => {
+    it('should not apply RMD before age 73', () => {
+      // Profile born 1953, age 72 in 2025 (just before RMD)
+      const age72Profile: UserProfile = {
+        ...sampleProfile,
+        dateOfBirth: '1953-01-01',
+      };
+
+      const retirementAccounts: Account[] = [
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Vanguard',
+          balance: 500000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Fidelity',
+          balance: 300000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+      ];
+
+      const preRmdScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0, // Disable returns to isolate RMD logic
+        socialSecurityAge: 100, // Disable social security for this test
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Pre-RMD Year',
+            startAge: 72, // Age 72 - just before RMD
+            endAge: 72,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 0,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      // Run projection for single year at age 72 (before RMD)
+      const projection = calculateScenarioProjection(
+        preRmdScenario,
+        age72Profile,
+        retirementAccounts,
+        2025,
+        2025
+      );
+
+      // Verify no withdrawals from retirement accounts (no RMD at age 72)
+      const year1 = projection.years[0];
+      expect(year1.accountBalances.byAccountType['traditional-ira']).toBe(500000);
+      expect(year1.accountBalances.byAccountType['401k']).toBe(300000);
+      expect(year1.income.total).toBe(0); // No RMD income
+    });
+
+    it('should calculate correct RMD at age 73 using life expectancy factor 26.5', () => {
+      // Profile needs to be born in 1952 to be age 73 in 2025
+      const age73Profile: UserProfile = {
+        ...sampleProfile,
+        dateOfBirth: '1952-01-01',
+      };
+
+      const retirementAccounts: Account[] = [
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Vanguard',
+          balance: 500000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Fidelity',
+          balance: 300000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+      ];
+
+      const rmdScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0,
+        socialSecurityAge: 100, // Disable social security for this test
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'RMD Year',
+            startAge: 73,
+            endAge: 73,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 0,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        rmdScenario,
+        age73Profile,
+        retirementAccounts,
+        2025,
+        2025
+      );
+
+      // Expected RMD = (500000 + 300000) / 26.5 = 30,188.68
+      const expectedRmd = 800000 / 26.5;
+      const year1 = projection.years[0];
+
+      // Verify RMD amount is included in income
+      expect(year1.income.total).toBeCloseTo(expectedRmd, 0);
+
+      // Verify accounts were reduced by RMD (proportionally)
+      const traditionalIraAfterRmd = 500000 - (expectedRmd * (500000 / 800000));
+      const k401AfterRmd = 300000 - (expectedRmd * (300000 / 800000));
+
+      expect(year1.accountBalances.byAccountType['traditional-ira']).toBeCloseTo(traditionalIraAfterRmd, 0);
+      expect(year1.accountBalances.byAccountType['401k']).toBeCloseTo(k401AfterRmd, 0);
+    });
+
+    it('should use correct life expectancy factors at different ages', () => {
+      // Test various ages with their corresponding life expectancy factors
+      const testCases = [
+        { age: 73, factor: 26.5, birthYear: 1952 },
+        { age: 74, factor: 25.5, birthYear: 1951 },
+        { age: 75, factor: 24.6, birthYear: 1950 },
+        { age: 80, factor: 20.2, birthYear: 1945 },
+        { age: 85, factor: 15.5, birthYear: 1940 },
+        { age: 90, factor: 11.5, birthYear: 1935 },
+        { age: 95, factor: 8.1, birthYear: 1930 },
+        { age: 100, factor: 5.0, birthYear: 1925 },
+      ];
+
+      testCases.forEach(({ age, factor, birthYear }) => {
+        const testProfile: UserProfile = {
+          ...sampleProfile,
+          dateOfBirth: `${birthYear}-01-01`,
+        };
+
+        const retirementAccounts: Account[] = [
+          {
+            id: 'acc-traditional-ira',
+            username: 'test@example.com',
+            accountType: 'traditional-ira',
+            accountName: 'Traditional IRA',
+            institution: 'Vanguard',
+            balance: 1000000,
+            asOfDate: '2025-01-01',
+            status: 'active',
+          },
+        ];
+
+        const rmdScenario: Scenario = {
+          ...sampleScenario,
+          investmentReturnRate: 0,
+          socialSecurityAge: 100, // Disable social security for this test
+          socialSecurityIncome: 0,
+          assumptionBuckets: [
+            {
+              id: 'bucket-1',
+              name: `RMD at Age ${age}`,
+              startAge: age,
+              endAge: age,
+              assumptions: {
+                annualIncome: 0,
+                annualSpending: 0,
+                annualTravelBudget: 0,
+                annualHealthcareCosts: 0,
+                contributions: {
+                  '401k': 0,
+                  'traditional-ira': 0,
+                  'roth-ira': 0,
+                  'brokerage': 0,
+                  'savings': 0,
+                  'checking': 0,
+                },
+              },
+            },
+          ],
+        };
+
+        const projection = calculateScenarioProjection(
+          rmdScenario,
+          testProfile,
+          retirementAccounts,
+          2025,
+          2025
+        );
+
+        const expectedRmd = 1000000 / factor;
+        const year1 = projection.years[0];
+
+        expect(year1.income.total).toBeCloseTo(expectedRmd, 0);
+        expect(year1.accountBalances.byAccountType['traditional-ira']).toBeCloseTo(1000000 - expectedRmd, 0);
+      });
+    });
+
+    it('should withdraw RMD proportionally from traditional IRA and 401k', () => {
+      const age73Profile: UserProfile = {
+        ...sampleProfile,
+        dateOfBirth: '1952-01-01',
+      };
+
+      const retirementAccounts: Account[] = [
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Vanguard',
+          balance: 600000, // 75% of total
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-401k',
+          username: 'test@example.com',
+          accountType: '401k',
+          accountName: '401k',
+          institution: 'Fidelity',
+          balance: 200000, // 25% of total
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+      ];
+
+      const rmdScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0,
+        socialSecurityAge: 100, // Disable social security for this test
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Proportional RMD',
+            startAge: 73,
+            endAge: 73,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 0,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        rmdScenario,
+        age73Profile,
+        retirementAccounts,
+        2025,
+        2025
+      );
+
+      // Total RMD = 800000 / 26.5 = 30,188.68
+      const totalRmd = 800000 / 26.5;
+      const iraRmd = totalRmd * 0.75; // 75% from traditional IRA
+      const k401Rmd = totalRmd * 0.25; // 25% from 401k
+
+      const year1 = projection.years[0];
+
+      // Verify proportional withdrawals
+      expect(year1.accountBalances.byAccountType['traditional-ira']).toBeCloseTo(600000 - iraRmd, 0);
+      expect(year1.accountBalances.byAccountType['401k']).toBeCloseTo(200000 - k401Rmd, 0);
+
+      // Verify total RMD added to income
+      expect(year1.income.total).toBeCloseTo(totalRmd, 0);
+    });
+
+    it('should not apply RMD to Roth IRA accounts', () => {
+      const age73Profile: UserProfile = {
+        ...sampleProfile,
+        dateOfBirth: '1952-01-01',
+      };
+
+      const retirementAccounts: Account[] = [
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Vanguard',
+          balance: 500000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+        {
+          id: 'acc-roth-ira',
+          username: 'test@example.com',
+          accountType: 'roth-ira',
+          accountName: 'Roth IRA',
+          institution: 'Fidelity',
+          balance: 300000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+      ];
+
+      const rmdScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0,
+        socialSecurityAge: 100, // Disable social security for this test
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'RMD Excludes Roth',
+            startAge: 73,
+            endAge: 73,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 0,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        rmdScenario,
+        age73Profile,
+        retirementAccounts,
+        2025,
+        2025
+      );
+
+      // RMD should only be calculated on traditional IRA (500000 / 26.5)
+      const expectedRmd = 500000 / 26.5;
+      const year1 = projection.years[0];
+
+      // Roth IRA should remain untouched
+      expect(year1.accountBalances.byAccountType['roth-ira']).toBe(300000);
+
+      // Traditional IRA should be reduced by RMD
+      expect(year1.accountBalances.byAccountType['traditional-ira']).toBeCloseTo(500000 - expectedRmd, 0);
+
+      // Income should only include RMD from traditional IRA
+      expect(year1.income.total).toBeCloseTo(expectedRmd, 0);
+    });
+
+    it('should apply linear interpolation for ages between defined factors', () => {
+      // Test age 76 (between 75 and 80)
+      // Linear interpolation: 27.4 - (76 - 72) * 0.5 = 27.4 - 2.0 = 25.4
+      const age76Profile: UserProfile = {
+        ...sampleProfile,
+        dateOfBirth: '1949-01-01',
+      };
+
+      const retirementAccounts: Account[] = [
+        {
+          id: 'acc-traditional-ira',
+          username: 'test@example.com',
+          accountType: 'traditional-ira',
+          accountName: 'Traditional IRA',
+          institution: 'Vanguard',
+          balance: 1000000,
+          asOfDate: '2025-01-01',
+          status: 'active',
+        },
+      ];
+
+      const rmdScenario: Scenario = {
+        ...sampleScenario,
+        investmentReturnRate: 0,
+        socialSecurityAge: 100, // Disable social security for this test
+        socialSecurityIncome: 0,
+        assumptionBuckets: [
+          {
+            id: 'bucket-1',
+            name: 'Interpolated RMD',
+            startAge: 76,
+            endAge: 76,
+            assumptions: {
+              annualIncome: 0,
+              annualSpending: 0,
+              annualTravelBudget: 0,
+              annualHealthcareCosts: 0,
+              contributions: {
+                '401k': 0,
+                'traditional-ira': 0,
+                'roth-ira': 0,
+                'brokerage': 0,
+                'savings': 0,
+                'checking': 0,
+              },
+            },
+          },
+        ],
+      };
+
+      const projection = calculateScenarioProjection(
+        rmdScenario,
+        age76Profile,
+        retirementAccounts,
+        2025,
+        2025
+      );
+
+      // Expected factor: 27.4 - (76 - 72) * 0.5 = 25.4
+      const expectedFactor = 27.4 - (76 - 72) * 0.5;
+      const expectedRmd = 1000000 / expectedFactor;
+      const year1 = projection.years[0];
+
+      expect(year1.income.total).toBeCloseTo(expectedRmd, 0);
+      expect(year1.accountBalances.byAccountType['traditional-ira']).toBeCloseTo(1000000 - expectedRmd, 0);
+    });
+  });
 });
