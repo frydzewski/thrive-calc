@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Scenario } from '../types/scenarios';
+import { Account } from '../types/accounts';
 import ScenarioModal from '../components/ScenarioModal';
 
 export default function Scenarios() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
@@ -34,20 +37,32 @@ export default function Scenarios() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/scenarios');
+      
+      // Fetch both scenarios and accounts
+      const [scenariosRes, accountsRes] = await Promise.all([
+        fetch('/api/scenarios'),
+        fetch('/api/accounts'),
+      ]);
 
-      if (!response.ok) {
+      if (!scenariosRes.ok) {
         throw new Error('Failed to fetch scenarios');
       }
 
-      const data = await response.json();
-      if (data.success) {
-        setScenarios(data.scenarios || []);
+      const scenariosData = await scenariosRes.json();
+      if (scenariosData.success) {
+        setScenarios(scenariosData.scenarios || []);
       } else {
-        throw new Error(data.error || 'Failed to fetch scenarios');
+        throw new Error(scenariosData.error || 'Failed to fetch scenarios');
+      }
+
+      if (accountsRes.ok) {
+        const accountsData = await accountsRes.json();
+        if (accountsData.success) {
+          setAccounts(accountsData.accounts || []);
+        }
       }
     } catch (err) {
-      console.error('Error fetching scenarios:', err);
+      console.error('Error fetching data:', err);
       setError('Failed to load scenarios. Please try again.');
     } finally {
       setLoading(false);
@@ -151,6 +166,35 @@ export default function Scenarios() {
       {error && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p className="text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
+      {accounts.length === 0 && (
+        <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-6">
+          <div className="flex items-start gap-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-blue-600 flex-shrink-0">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                Get More Accurate Projections
+              </h3>
+              <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                For the most accurate retirement projections, we recommend adding your accounts first. This helps us calculate realistic scenarios based on your current financial position. However, you can still create scenarios without accounts to explore different planning assumptions.
+              </p>
+              <Link
+                href="/accounts"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Add Your Accounts
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 

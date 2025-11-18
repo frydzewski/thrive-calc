@@ -97,10 +97,10 @@ export default function Dashboard() {
               Sign In to Get Started
             </button>
             <Link
-              href="/retirement-calculator"
+              href="/scenarios"
               className="px-6 py-3 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-700 rounded-lg font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
             >
-              Try Calculator
+              Explore Scenarios
             </Link>
           </div>
         </div>
@@ -729,13 +729,13 @@ export default function Dashboard() {
             </Link>
 
             <Link
-              href="/retirement-calculator"
+              href="/scenarios"
               className="block p-4 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-zinc-900 dark:text-white">
-                    Retirement Calculator
+                    Financial Scenarios
                   </div>
                   <div className="text-sm text-zinc-600 dark:text-zinc-400">
                     Plan your retirement goals
