@@ -376,6 +376,9 @@ export default function ScenarioDetails() {
                   Total Spending
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Living + Healthcare + Travel
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                   Mortgage
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
@@ -452,6 +455,9 @@ export default function ScenarioDetails() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white">
                       ${Math.round(year.spending.total).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-600 dark:text-zinc-400">
+                      ${Math.round(year.spending.living + year.spending.travel + year.spending.healthcare).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-600 dark:text-zinc-400">
                       ${Math.round(year.spending.mortgages).toLocaleString()}
