@@ -466,7 +466,7 @@ export default function ScenarioDetails() {
                       ${Math.round(year.contributions.total).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-zinc-900 dark:text-white font-medium">
-                      ${Math.round(year.incomeAfterContributions).toLocaleString()}
+                      ${Math.round(year.incomeAfterContributions ?? (year.income.total - year.contributions.total)).toLocaleString()}
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-right font-medium ${year.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       ${Math.round(year.netIncome).toLocaleString()}
