@@ -370,7 +370,7 @@ export default function ScenarioDetails() {
                   Age
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                  Total Income
+                  Gross Income
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                   Total Spending
