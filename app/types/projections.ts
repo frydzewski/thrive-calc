@@ -328,9 +328,11 @@ export function calculateScenarioProjection(
       totalContributions += inflatedContribution;
     }
 
-    // === INVESTMENT RETURNS (same rate for all accounts) ===
+    // === INVESTMENT RETURNS (only for investment accounts) ===
     // Investment return rate is scenario-level and applies uniformly across all years
+    // Cash accounts (checking, savings) do not receive investment returns
     const returnRate = scenario.investmentReturnRate || 0;
+    const INVESTMENT_ACCOUNTS: AccountType[] = ['401k', 'traditional-ira', 'roth-ira', 'brokerage'];
     let totalGains = 0;
 
     // Calculate returns on beginning balance (more realistic)
@@ -338,8 +340,10 @@ export function calculateScenarioProjection(
       const beginningBalance = accountBalances[accountType] || 0;
       const contribution = contributionsByType[accountType] || 0;
 
-      // Calculate returns on beginning balance
-      const gain = applyInvestmentReturns(beginningBalance, returnRate);
+      // Calculate returns on beginning balance (only for investment accounts)
+      const gain = INVESTMENT_ACCOUNTS.includes(accountType)
+        ? applyInvestmentReturns(beginningBalance, returnRate)
+        : 0;
       totalGains += gain;
 
       // Update balance: beginning + contributions + gains
